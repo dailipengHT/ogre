@@ -129,7 +129,7 @@ namespace Ogre {
     {
     }
     //---------------------------------------------------------------------
-    Codec::DecodeResult ETCCodec::decode(const DataStreamPtr& stream) const
+    ImageCodec::DecodeResult ETCCodec::decode(const DataStreamPtr& stream) const
     {
         DecodeResult ret;
         if (decodeKTX(stream, ret))
@@ -235,7 +235,6 @@ namespace Ogre {
         // Now deal with the data
         void *destPtr = output->getPtr();
         stream->read(destPtr, imgData->size);
-        destPtr = static_cast<void*>(static_cast<uchar*>(destPtr));
 
         DecodeResult ret;
         ret.first = output;
@@ -355,7 +354,7 @@ namespace Ogre {
         if (header.glType == 0 || header.glFormat == 0)
             imgData->flags |= IF_COMPRESSED;
 
-        size_t numFaces = header.numberOfFaces;
+        uint32 numFaces = header.numberOfFaces;
         if (numFaces > 1)
             imgData->flags |= IF_CUBEMAP;
         // Calculate total size from number of mipmaps, faces and size

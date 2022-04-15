@@ -43,7 +43,6 @@ namespace Ogre
     {
         mIsFullScreen = false;
         mActive = false;
-        mClosed = false;
         mFSAA = 1;
     }
     //-------------------------------------------------------------------------
@@ -302,26 +301,11 @@ namespace Ogre
 #endif
     }
     //-------------------------------------------------------------------------
-    bool MetalRenderWindow::isClosed(void) const
-    {
-        return mClosed;
-    }
-    //-------------------------------------------------------------------------
     void MetalRenderWindow::getCustomAttribute( const String& name, void* pData )
     {
-        if( name == "MetalRenderTargetCommon" )
-        {
-            if( mMetalView.layerSizeDidUpdate )
-                checkLayerSizeChanges();
-            *static_cast<MetalRenderTargetCommon**>(pData) = this;
-        }
-        else if( name == "mNumMRTs" )
+        if( name == "mNumMRTs" )
         {
             *static_cast<uint8*>(pData) = 1u;
-        }
-        else if( name == "MetalDevice" )
-        {
-            *static_cast<MetalDevice**>(pData) = this->getOwnerDevice();
         }
         else if( name == "UIView" )
         {

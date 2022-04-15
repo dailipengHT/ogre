@@ -43,7 +43,7 @@ namespace Ogre {
         c.erase(p, c.end());
     }
 
-    String GLRenderSystemCommon::VideoMode::getDescription() const
+    String VideoMode::getDescription() const
     {
         return StringUtil::format("%4d x %4d", width, height);
     }
@@ -83,14 +83,6 @@ namespace Ogre {
             optFSAA.currentValue = optFSAA.possibleValues[0];
         }
         mOptions[optFSAA.name] = optFSAA;
-
-        // TODO remove this on next release
-        ConfigOption optRTTMode;
-        optRTTMode.name = "RTT Preferred Mode";
-        optRTTMode.possibleValues.push_back("FBO");
-        optRTTMode.currentValue = optRTTMode.possibleValues[0];
-        optRTTMode.immutable = true;
-        mOptions[optRTTMode.name] = optRTTMode;
 
         refreshConfig();
     }
@@ -159,9 +151,7 @@ namespace Ogre {
     {
         ConfigOptionMap::iterator option = mOptions.find(name);
         if (option == mOptions.end()) {
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                        "Option named " + name + " does not exist.",
-                        "GLNativeSupport::setConfigOption");
+            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Option named '" + name + "' does not exist.");
         }
         option->second.currentValue = value;
 

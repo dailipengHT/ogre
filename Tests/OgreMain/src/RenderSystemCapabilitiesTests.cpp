@@ -164,9 +164,6 @@ TEST_F(RenderSystemCapabilitiesTests,SerializeBoolCapability)
     // confirm that RSC was loaded
     EXPECT_TRUE(rscTrue != 0);
     EXPECT_TRUE(rscFalse != 0);
-
-    EXPECT_TRUE(rscTrue->getVertexTextureUnitsShared() == true);
-    EXPECT_TRUE(rscFalse->getVertexTextureUnitsShared() == false);
 }
 //--------------------------------------------------------------------------
 TEST_F(RenderSystemCapabilitiesTests,SerializeIntCapability)
@@ -221,7 +218,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteSimpleCapabilities)
     caps.setMaxPointSize(10.5);
     caps.addShaderProfile("vs999");
     caps.addShaderProfile("sp999");
-    caps.setVertexTextureUnitsShared(true);
 
     // write them to file
     serializer.writeScript(&caps, name, filename);
@@ -252,7 +248,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteSimpleCapabilities)
     // check that all the set caps are there
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tmax_point_size 10.5") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tshader_profile sp999") != lines.end());
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvertex_texture_units_shared true") != lines.end());
 }
 //--------------------------------------------------------------------------
 TEST_F(RenderSystemCapabilitiesTests,WriteAllFalseCapabilities)
@@ -265,9 +260,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAllFalseCapabilities)
     // set up caps of every type
     RenderSystemCapabilitiesSerializer serializer;
     RenderSystemCapabilities caps;
-
-    // all caps are false by default
-    caps.setVertexTextureUnitsShared(false);
 
     // write them to file
     serializer.writeScript(&caps, name, filename);
@@ -298,19 +290,14 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAllFalseCapabilities)
     // confirm every caps
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tautomipmap_compressed false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tanisotropy false") != lines.end());
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tdot3 false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\thwstencil false") != lines.end());
 
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvertex_program false") != lines.end());
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tfragment_program false") != lines.end());
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tscissor_test false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\ttwo_sided_stencil false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tstencil_wrap false") != lines.end());
 
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\thwocclusion false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tuser_clip_planes false") != lines.end());
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvertex_format_ubyte4 false") != lines.end());
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tinfinite_far_plane false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\thwrender_to_texture false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\ttexture_float false") != lines.end());
 
@@ -332,9 +319,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAllFalseCapabilities)
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tperstageconstant false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tseparate_shader_objects false") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvao false") != lines.end());
-
-    // bool caps
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvertex_texture_units_shared false") != lines.end());
 }
 //--------------------------------------------------------------------------
 TEST_F(RenderSystemCapabilitiesTests,WriteAllTrueCapabilities)
@@ -349,8 +333,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAllTrueCapabilities)
     RenderSystemCapabilities caps;
 
     // set all caps
-    caps.setVertexTextureUnitsShared(true);
-
     caps.setCapability(RSC_AUTOMIPMAP_COMPRESSED);
     caps.setCapability(RSC_ANISOTROPY);
     caps.setCapability(RSC_HWSTENCIL);
@@ -439,9 +421,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAllTrueCapabilities)
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tperstageconstant true") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tseparate_shader_objects true") != lines.end());
     EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvao true") != lines.end());
-
-    // bool caps
-    EXPECT_TRUE(find(lines.begin(), lines.end(), "\tvertex_texture_units_shared true") != lines.end());
 }
 //--------------------------------------------------------------------------
 TEST_F(RenderSystemCapabilitiesTests,WriteAndReadComplexCapabilities)
@@ -456,12 +435,9 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAndReadComplexCapabilities)
     RenderSystemCapabilities caps;
 
     // set all caps
-    caps.setVertexTextureUnitsShared(true);
-
     caps.setCapability(RSC_HWSTENCIL);
     caps.setCapability(RSC_TWO_SIDED_STENCIL);
     caps.setCapability(RSC_HWOCCLUSION);
-    caps.setCapability(RSC_VERTEX_FORMAT_UBYTE4);
     caps.setCapability(RSC_HWRENDER_TO_TEXTURE);
     caps.setCapability(RSC_TEXTURE_FLOAT);
     caps.setCapability(RSC_NON_POWER_OF_2_TEXTURES);
@@ -479,7 +455,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAndReadComplexCapabilities)
     caps.setCapability(RSC_VAO);
 
     caps.setNumTextureUnits(22);
-    caps.setStencilBufferBitDepth(20001);
     caps.setNumMultiRenderTargets(23);
 
     caps.addShaderProfile("99foo100");
@@ -488,16 +463,10 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAndReadComplexCapabilities)
     caps.addShaderProfile("..f(_)specialsymbolextravaganza!@#$%^&*_but_no_spaces");
 
     caps.setVertexProgramConstantFloatCount(1111);
-    caps.setVertexProgramConstantIntCount(2222);
-    caps.setVertexProgramConstantBoolCount(3333);
-
     caps.setFragmentProgramConstantFloatCount(4444);
-    caps.setFragmentProgramConstantIntCount(5555);
-    caps.setFragmentProgramConstantBoolCount(64000);
 
     caps.setMaxPointSize(123.75);
     caps.setNonPOW2TexturesLimited(true);
-    caps.setVertexTextureUnitsShared(true);
 
     DriverVersion driverversion;
     driverversion.major = 11;
@@ -537,7 +506,6 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAndReadComplexCapabilities)
 
     EXPECT_EQ(caps.hasCapability(RSC_HWOCCLUSION), caps2.hasCapability(RSC_HWOCCLUSION));
     EXPECT_EQ(caps.hasCapability(RSC_USER_CLIP_PLANES), caps2.hasCapability(RSC_USER_CLIP_PLANES));
-    EXPECT_EQ(caps.hasCapability(RSC_VERTEX_FORMAT_UBYTE4), caps2.hasCapability(RSC_VERTEX_FORMAT_UBYTE4));
     EXPECT_EQ(caps.hasCapability(RSC_HWRENDER_TO_TEXTURE), caps2.hasCapability(RSC_HWRENDER_TO_TEXTURE));
     EXPECT_EQ(caps.hasCapability(RSC_TEXTURE_FLOAT), caps2.hasCapability(RSC_TEXTURE_FLOAT));
 
@@ -561,20 +529,13 @@ TEST_F(RenderSystemCapabilitiesTests,WriteAndReadComplexCapabilities)
     EXPECT_EQ(caps.hasCapability(RSC_VAO), caps2.hasCapability(RSC_VAO));
 
     EXPECT_EQ(caps.getNumTextureUnits(), caps2.getNumTextureUnits());
-    EXPECT_EQ(caps.getStencilBufferBitDepth(), caps2.getStencilBufferBitDepth());
     EXPECT_EQ(caps.getNumMultiRenderTargets(), caps2.getNumMultiRenderTargets());
 
     EXPECT_EQ(caps.getVertexProgramConstantFloatCount(), caps2.getVertexProgramConstantFloatCount());
-    EXPECT_EQ(caps.getVertexProgramConstantIntCount(), caps2.getVertexProgramConstantIntCount());
-    EXPECT_EQ(caps.getVertexProgramConstantBoolCount(), caps2.getVertexProgramConstantBoolCount());
-
     EXPECT_EQ(caps.getFragmentProgramConstantFloatCount(), caps2.getFragmentProgramConstantFloatCount());
-    EXPECT_EQ(caps.getFragmentProgramConstantIntCount(), caps2.getFragmentProgramConstantIntCount());
-    EXPECT_EQ(caps.getFragmentProgramConstantBoolCount(), caps2.getFragmentProgramConstantBoolCount());
 
     EXPECT_EQ(caps.getMaxPointSize(), caps2.getMaxPointSize());
     EXPECT_EQ(caps.getNonPOW2TexturesLimited(), caps2.getNonPOW2TexturesLimited());
-    EXPECT_EQ(caps.getVertexTextureUnitsShared(), caps2.getVertexTextureUnitsShared());
     
     // test versions
     EXPECT_EQ(caps.getDriverVersion().major, caps2.getDriverVersion().major);

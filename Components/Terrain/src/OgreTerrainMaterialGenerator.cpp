@@ -78,7 +78,6 @@ namespace Ogre
             Root::getSingleton().destroySceneManager(mCompositeMapSM);
             mCompositeMapSM = 0;
             mCompositeMapCam = 0;
-            mCompositeMapPlane = 0;
             mCompositeMapLight = 0;
             mLightNode = 0;
         }
@@ -110,11 +109,9 @@ namespace Ogre
 
 
             // set up scene
-            mCompositeMapPlane = new Rectangle2D(true);
-            mCompositeMapPlane->setCorners(-1, 1, 1, -1);
+            mCompositeMapPlane = mCompositeMapSM->createScreenSpaceRect(true);
             mCompositeMapPlane->setUVs({0 - hOffset, 0 - vOffset}, {0 - hOffset, 1 - vOffset},
                                        {1 - hOffset, 0 - vOffset}, {1 - hOffset, 1 - vOffset});
-            mCompositeMapPlane->setBoundingBox(AxisAlignedBox::BOX_INFINITE);
 
             mCompositeMapSM->getRootSceneNode()->attachObject(mCompositeMapPlane);
 
@@ -175,7 +172,7 @@ namespace Ogre
     void TerrainMaterialGenerator::Profile::updateCompositeMap(const Terrain* terrain, const Rect& rect)
     {
         // convert point-space rect into image space
-        long compSize = terrain->getCompositeMap()->getWidth();
+        int32 compSize = terrain->getCompositeMap()->getWidth();
         Rect imgRect;
         Vector3 inVec, outVec;
         inVec.x = rect.left;

@@ -43,8 +43,8 @@ namespace Ogre {
             const String& group, bool isManual, ManualResourceLoader* loader);
         ~GLSLProgram();
 
-        void attachToProgramObject( const GLhandleARB programObject );
-        void detachFromProgramObject( const GLhandleARB programObject );
+        void attachToProgramObject( const uint programObject );
+        void detachFromProgramObject( const uint programObject );
 
         /// Overridden from GpuProgram
         const String& getLanguage(void) const;
@@ -110,10 +110,8 @@ namespace Ogre {
         /// Internal unload implementation, must be implemented by subclasses
         void unloadHighLevelImpl(void);
 
-        /// Populate the passed parameters with name->index map
-        void populateParameterNames(GpuProgramParametersSharedPtr params);
         /// Populate the passed parameters with name->index map, must be overridden
-        void buildConstantDefinitions() const;
+        void buildConstantDefinitions() override;
 
         // legacy GL_EXT_geometry_shader4 functionality
         RenderOperation::OperationType mInputOperationType;

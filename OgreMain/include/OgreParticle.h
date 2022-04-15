@@ -39,23 +39,9 @@ namespace Ogre {
     /** \addtogroup Effects
     *  @{
     */
-    /// @deprecated do not use
-    class _OgreExport ParticleVisualData : public FXAlloc
-    {
-    public:
-        ParticleVisualData() {}
-        virtual ~ParticleVisualData() {}
-
-    };
-
     /** Class representing a single particle instance. */
     class _OgreExport Particle : public FXAlloc
     {
-    protected:
-        /// Parent ParticleSystem
-        ParticleSystem* mParentSystem;
-        /// Additional visual data you might want to associate with the Particle
-        ParticleVisualData* mVisual;
     public:
         /// Type of particle
         enum ParticleType : uint8
@@ -64,12 +50,10 @@ namespace Ogre {
             Emitter
         };
 
-        /// Does this particle have it's own dimensions?
-        bool mOwnDimensions;
-        /// Personal width if mOwnDimensions == true
-        Real mWidth;
-        /// Personal height if mOwnDimensions == true
-        Real mHeight;
+        /// Particle width
+        float mWidth;
+        /// Particle height
+        float mHeight;
         /// Current rotation value
         Radian mRotation;
         // Note the intentional public access to internal variables
@@ -79,11 +63,11 @@ namespace Ogre {
         /// Direction (and speed) 
         Vector3 mDirection;
         /// Current colour
-        ColourValue mColour;
+        RGBA mColour;
         /// Time to live, number of seconds left of particles natural life
-        Real mTimeToLive;
+        float mTimeToLive;
         /// Total Time to live, number of seconds of particles natural life
-        Real mTotalTimeToLive;
+        float mTotalTimeToLive;
         /// Speed of rotation in radians/sec
         Radian mRotationSpeed;
         /// Determines the type of particle.
@@ -93,53 +77,34 @@ namespace Ogre {
         uint8 mRandomTexcoordOffset;
 
         Particle()
-            : mParentSystem(0), mVisual(0), mOwnDimensions(false), mWidth(0), mHeight(0),
+            : mWidth(0), mHeight(0),
             mRotation(0), mPosition(Vector3::ZERO), mDirection(Vector3::ZERO),
-            mColour(ColourValue::White), mTimeToLive(10), mTotalTimeToLive(10),
+            mColour(0xFFFFFFFF), mTimeToLive(10), mTotalTimeToLive(10),
             mRotationSpeed(0), mParticleType(Visual), mTexcoordIndex(0), mRandomTexcoordOffset(0)
         {
         }
 
         /** Sets the width and height for this particle.
-        @remarks
-        Note that it is most efficient for every particle in a ParticleSystem to have the same dimensions. If you
-        choose to alter the dimensions of an individual particle the set will be less efficient. Do not call
-        this method unless you really need to have different particle dimensions within the same set. Otherwise
-        just call the ParticleSystem::setDefaultDimensions method instead.
         */
-        void setDimensions(Real width, Real height); 
+        void setDimensions(float width, float height)
+        {
+            mWidth = width;
+            mHeight = height;
+        }
 
-        /** Returns true if this particle deviates from the ParticleSystem's default dimensions (i.e. if the
-        particle::setDimensions method has been called for this instance).
-        @see
-        particle::setDimensions
-        */
-        bool hasOwnDimensions(void) const { return mOwnDimensions; }
+        /// @deprecated do not use
+        OGRE_DEPRECATED bool hasOwnDimensions(void) const { return true; }
 
         /** Retrieves the particle's personal width, if hasOwnDimensions is true. */
-        Real getOwnWidth(void) const { return mWidth; }
+        float getOwnWidth(void) const { return mWidth; }
 
         /** Retrieves the particle's personal width, if hasOwnDimensions is true. */
-        Real getOwnHeight(void) const { return mHeight; }
+        float getOwnHeight(void) const { return mHeight; }
         
         /** Sets the current rotation */
         void setRotation(const Radian& rad) { mRotation = rad; }
 
         const Radian& getRotation(void) const { return mRotation; }
-
-        /** Internal method for notifying the particle of it's owner.
-        */
-        void _notifyOwner(ParticleSystem* owner);
-
-        /** Internal method for notifying the particle of it's optional visual data.
-        */
-        void _notifyVisualData(ParticleVisualData* vis) { mVisual = vis; }
-
-        /// @deprecated do not use
-        OGRE_DEPRECATED ParticleVisualData* getVisualData(void) const { return mVisual; }
-
-        /// Utility method to reset this particle
-        void resetDimensions(void);
     };
     /** @} */
     /** @} */

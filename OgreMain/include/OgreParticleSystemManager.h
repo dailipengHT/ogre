@@ -47,28 +47,27 @@ namespace Ogre {
     */
     /** Manages particle systems, particle system scripts (templates) and the 
         available emitter & affector factories.
-    @remarks
-        This singleton class is responsible for creating and managing particle 
-        systems. All particle systems must be created and destroyed using this 
-        object, although the user interface to creating them is via
+
+        This singleton class is responsible for managing particle
+        systems. Although, the user interface to creating them is via
         SceneManager. Remember that like all other MovableObject
         subclasses, ParticleSystems do not get rendered until they are 
         attached to a SceneNode object.
-    @par
+
         This class also manages factories for ParticleEmitter and 
         ParticleAffector classes. To enable easy extensions to the types of 
         emitters (particle sources) and affectors (particle modifiers), the
         ParticleSystemManager lets plugins or applications register factory 
         classes which submit new subclasses to ParticleEmitter and 
-        ParticleAffector. Ogre comes with a number of them already provided,
+        ParticleAffector. The actual implementations,
         such as cone, sphere and box-shaped emitters, and simple affectors such
-        as constant directional force and colour faders. However using this 
-        registration process, a plugin can create any behaviour required.
-    @par
+        as constant directional force and colour faders are provided by the @ref ParticleFX Plugin shipped with %Ogre.
+        However using this registration process, a custom plugin can create any behaviour required.
+
         This class also manages the loading and parsing of particle system 
         scripts, which are text files describing named particle system 
         templates. Instances of particle systems using these templates can
-        then be created easily through the createParticleSystem method.
+        then be created easily through the SceneManager::createParticleSystem method.
     */
     class _OgreExport ParticleSystemManager: 
         public Singleton<ParticleSystemManager>, public ScriptLoader, public FXAlloc
@@ -79,7 +78,7 @@ namespace Ogre {
         typedef std::map<String, ParticleAffectorFactory*> ParticleAffectorFactoryMap;
         typedef std::map<String, ParticleEmitterFactory*> ParticleEmitterFactoryMap;
         typedef std::map<String, ParticleSystemRendererFactory*> ParticleSystemRendererFactoryMap;
-    protected:
+    private:
         OGRE_AUTO_MUTEX;
             
         /// Templates based on scripts
@@ -104,9 +103,6 @@ namespace Ogre {
             const String& resourceGroup);
         /// Internal implementation of createSystem
         ParticleSystem* createSystemImpl(const String& name, const String& templateName);
-        /// Internal implementation of destroySystem
-        void destroySystemImpl(ParticleSystem* sys);
-        
         
     public:
 
@@ -200,7 +196,7 @@ namespace Ogre {
         void removeAllTemplates(bool deleteTemplate = true);
 
 
-        /** Removes all templates that belong to a secific Resource Group from the ParticleSystemManager.
+        /** Removes all templates that belong to a specific Resource Group from the ParticleSystemManager.
         @remarks
             This method removes all templates that belong in a particular resource group from the ParticleSystemManager.
         @param resourceGroup
@@ -339,7 +335,7 @@ namespace Ogre {
     /** Factory object for creating ParticleSystem instances */
     class _OgreExport ParticleSystemFactory : public MovableObjectFactory
     {
-    protected:
+    private:
         MovableObject* createInstanceImpl(const String& name, const NameValuePairList* params);
     public:
         ParticleSystemFactory() {}
@@ -348,8 +344,6 @@ namespace Ogre {
         static String FACTORY_TYPE_NAME;
 
         const String& getType(void) const;
-        void destroyInstance( MovableObject* obj);  
-
     };
     /** @} */
     /** @} */

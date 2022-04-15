@@ -28,6 +28,7 @@ THE SOFTWARE.
 #ifndef __Math_H__
 #define __Math_H__
 
+#include <limits>
 #include "OgrePrerequisites.h"
 #include "OgreHeaderPrefix.h"
 
@@ -225,7 +226,7 @@ namespace Ogre
             virtual Real getRandomUnit() = 0;
        };
 
-    protected:
+    private:
         /// Angle units used by the api
         static AngleUnit msAngleUnit;
 
@@ -357,9 +358,9 @@ namespace Ogre
         static inline Real Log (Real fValue) { return std::log(fValue); }
 
         /// Stored value of log(2) for frequent use
-        static const Real LOG2;
+        static constexpr Real LOG2 = 0.69314718055994530942;
 
-        static inline Real Log2 (Real fValue) { return std::log(fValue)/LOG2; }
+        static inline Real Log2 (Real fValue) { return std::log2(fValue); }
 
         static inline Real LogN (Real base, Real fValue) { return std::log(fValue)/std::log(base); }
 
@@ -612,29 +613,7 @@ namespace Ogre
         static bool intersects(const Ray& ray, const AxisAlignedBox& box,
             Real* d1, Real* d2);
 
-        /** Ray / triangle intersection, returns boolean result and distance.
-        @param ray
-            The ray.
-        @param a
-            The triangle's first vertex.
-        @param b
-            The triangle's second vertex.
-        @param c
-            The triangle's third vertex.
-        @param normal
-            The triangle plane's normal (passed in rather than calculated
-            on demand since the caller may already have it), doesn't need
-            normalised since we don't care.
-        @param positiveSide
-            Intersect with "positive side" of the triangle
-        @param negativeSide
-            Intersect with "negative side" of the triangle
-        */
-        static RayTestResult intersects(const Ray& ray, const Vector3& a,
-            const Vector3& b, const Vector3& c, const Vector3& normal,
-            bool positiveSide = true, bool negativeSide = true);
-
-        /** Ray / triangle intersection, returns boolean result and distance.
+        /** Ray / triangle intersection @cite moller1997fast, returns boolean result and distance.
         @param ray
             The ray.
         @param a
@@ -644,13 +623,21 @@ namespace Ogre
         @param c
             The triangle's third vertex.
         @param positiveSide
-            Intersect with "positive side" of the triangle
+            Intersect with "positive side" of the triangle (as determined by vertex winding)
         @param negativeSide
-            Intersect with "negative side" of the triangle
+            Intersect with "negative side" of the triangle (as determined by vertex winding)
         */
         static RayTestResult intersects(const Ray& ray, const Vector3& a,
             const Vector3& b, const Vector3& c,
             bool positiveSide = true, bool negativeSide = true);
+
+        /// @deprecated normal parameter is not used any more
+        OGRE_DEPRECATED static RayTestResult intersects(const Ray& ray, const Vector3& a, const Vector3& b,
+                                                        const Vector3& c, const Vector3& normal,
+                                                        bool positiveSide = true, bool negativeSide = true)
+        {
+            return intersects(ray, a, b, c, positiveSide, negativeSide);
+        }
 
         /** Sphere / box intersection test. */
         static bool intersects(const Sphere& sphere, const AxisAlignedBox& box);
@@ -751,13 +738,13 @@ namespace Ogre
         static Real boundingRadiusFromAABBCentered(const AxisAlignedBox &aabb);
 
 
-        static const Real POS_INFINITY;
-        static const Real NEG_INFINITY;
-        static const Real PI;
-        static const Real TWO_PI;
-        static const Real HALF_PI;
-        static const float fDeg2Rad;
-        static const float fRad2Deg;
+        static constexpr Real POS_INFINITY = std::numeric_limits<Real>::infinity();
+        static constexpr Real NEG_INFINITY = -std::numeric_limits<Real>::infinity();
+        static constexpr Real PI = 3.14159265358979323846;
+        static constexpr Real TWO_PI = Real( 2.0 * PI );
+        static constexpr Real HALF_PI = Real( 0.5 * PI );
+        static constexpr float fDeg2Rad = PI / Real(180.0);
+        static constexpr float fRad2Deg = Real(180.0) / PI;
 
     };
 

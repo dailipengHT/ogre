@@ -312,6 +312,12 @@ namespace Ogre
     {
         if (mEnabled)
         {
+            if(mDurationMax < 0)
+            {
+                // single-shot burst
+                setEnabled(false);
+                return mEmissionRate;
+            }
             // Keep fractions, otherwise a high frame rate will result in zero emissions!
             mRemainder += mEmissionRate * timeElapsed;
             unsigned short intRequest = (unsigned short)mRemainder;
@@ -355,17 +361,17 @@ namespace Ogre
 
     }
     //-----------------------------------------------------------------------
-    void ParticleEmitter::genEmissionColour(ColourValue& destColour)
+    void ParticleEmitter::genEmissionColour(RGBA& destColour)
     {
         if (mColourRangeStart != mColourRangeEnd)
         {
             // Randomise
             ColourValue t(Math::UnitRandom(), Math::UnitRandom(), Math::UnitRandom(), Math::UnitRandom());
-            destColour = mColourRangeStart + t * (mColourRangeEnd - mColourRangeStart);
+            destColour = (mColourRangeStart + t * (mColourRangeEnd - mColourRangeStart)).getAsBYTE();
         }
         else
         {
-            destColour = mColourRangeStart;
+            destColour = mColourRangeStart.getAsBYTE();
         }
     }
     //-----------------------------------------------------------------------

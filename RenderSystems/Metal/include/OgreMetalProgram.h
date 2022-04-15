@@ -56,14 +56,6 @@ namespace Ogre
     class _OgreMetalExport MetalProgram : public HighLevelGpuProgram
     {
     public:
-        /// Command object for setting entry point
-        class CmdEntryPoint : public ParamCommand
-        {
-        public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
-        };
-
         /// Command object for setting vertex shader pair
         class CmdShaderReflectionPairHint : public ParamCommand
         {
@@ -105,15 +97,11 @@ namespace Ogre
                                                             MTLRenderPipelineDescriptor *outPsd );
         void analyzeParameterBuffer( MTLArgument *arg );
 
-        /// In bytes.
-        uint32 getBufferRequiredSize(void) const;
-        /// dstData must be able to hold at least getBufferRequiredSize
-        void updateBuffers( const GpuProgramParametersSharedPtr &params,
-                            uint8 * RESTRICT_ALIAS dstData );
-
         static uint32 getAttributeIndex(VertexElementSemantic semantic);
+
+        // first 15 slots are reserved for the vertex attribute buffers
+        constexpr static int UNIFORM_INDEX_START = 16;
     protected:
-        static CmdEntryPoint msCmdEntryPoint;
         static CmdShaderReflectionPairHint msCmdShaderReflectionPairHint;
 
         /** Internal load implementation, must be implemented by subclasses.
@@ -126,10 +114,8 @@ namespace Ogre
         /// Internal unload implementation, must be implemented by subclasses
         void unloadHighLevelImpl(void);
 
-        /// Populate the passed parameters with name->index map
-        void populateParameterNames(GpuProgramParametersSharedPtr params);
         /// Populate the passed parameters with name->index map, must be overridden
-        void buildConstantDefinitions(void) const;
+        void buildConstantDefinitions(void) override;
 
         void parsePreprocessorDefinitions( NSMutableDictionary<NSString*, NSObject*> *inOutMacros );
 
@@ -142,12 +128,7 @@ namespace Ogre
         /// Flag indicating if shader object successfully compiled
         bool mCompiled;
         /// Preprocessor options
-        String mEntryPoint;
         String mTargetBufferName;
-
-        std::vector<GpuConstantDefinition> mConstantDefsSorted;
-        uint32 mConstantsBytesToWrite;
-
         String mShaderReflectionPairHint;
     };
 }

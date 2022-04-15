@@ -62,17 +62,6 @@ namespace Ogre {
     class _OgreExport RenderTarget : public RenderSysAlloc
     {
     public:
-        enum StatFlags
-        {
-            SF_NONE           = 0,
-            SF_FPS            = 1,
-            SF_AVG_FPS        = 2,
-            SF_BEST_FPS       = 4,
-            SF_WORST_FPS      = 8,
-            SF_TRIANGLE_COUNT = 16,
-            SF_ALL            = 0xFFFF
-        };
-
         struct FrameStats
         {
             /// frames per second (FPS) based on the frames rendered in the last second
@@ -106,11 +95,10 @@ namespace Ogre {
         virtual const String& getName(void) const;
 
         /// Retrieve information about the render target.
-        virtual void getMetrics(unsigned int& width, unsigned int& height, unsigned int& colourDepth);
+        void getMetrics(unsigned int& width, unsigned int& height);
 
         virtual uint32 getWidth(void) const;
         virtual uint32 getHeight(void) const;
-        virtual uint32 getColourDepth(void) const;
 
         /**
          * Sets the pool ID this RenderTarget should query from. Default value is POOL_DEFAULT.
@@ -218,7 +206,7 @@ namespace Ogre {
         */
         virtual void removeAllViewports(void);
 
-        /** Retieves details of current rendering performance. */
+        /** Retrieves details of current rendering performance. */
         const FrameStats& getStatistics(void) const {
             return mStats;
         }
@@ -347,7 +335,7 @@ namespace Ogre {
         virtual bool requiresTextureFlipping() const = 0;
 
         /** Utility method to notify a render target that a camera has been removed,
-        incase it was referring to it as a viewer.
+        in case it was referring to it as a viewer.
         */
         virtual void _notifyCameraRemoved(const Camera* cam);
 
@@ -385,15 +373,6 @@ namespace Ogre {
             @param fsaaHint @copybrief getFSAAHint
         */
         virtual void setFSAA(uint fsaa, const String& fsaaHint) { }
-
-        /// @deprecated do not use
-        class Impl
-        {
-        protected:
-            ~Impl() { }
-        };
-        /// @deprecated do not use
-        OGRE_DEPRECATED virtual Impl *_getImpl();
 
         /** Method for manual management of rendering : fires 'preRenderTargetUpdate'
             and initialises statistics etc.
@@ -467,7 +446,6 @@ namespace Ogre {
 
         uint32 mWidth;
         uint32 mHeight;
-        uint32 mColourDepth;
         uint16       mDepthBufferPoolId;
         DepthBuffer *mDepthBuffer;
 

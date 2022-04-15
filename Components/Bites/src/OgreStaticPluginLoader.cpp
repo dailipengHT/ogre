@@ -47,6 +47,9 @@
 #ifdef OGRE_STATIC_CgProgramManager
 #  include "OgreCgPlugin.h"
 #endif
+#ifdef OGRE_BUILD_PLUGIN_GLSLANG
+#  include "OgreGLSLangProgramManager.h"
+#endif
 #ifdef OGRE_BUILD_PLUGIN_ASSIMP
 #  include "OgreAssimpLoader.h"
 #endif
@@ -76,6 +79,9 @@
 #endif
 #ifdef OGRE_BUILD_RENDERSYSTEM_TINY
 #  include "OgreTinyPlugin.h"
+#endif
+#ifdef OGRE_BUILD_RENDERSYSTEM_VULKAN
+#  include "OgreVulkanPlugin.h"
 #endif
 #ifdef OGRE_STATIC_PCZSceneManager
 #  include "OgrePCZPlugin.h"
@@ -117,6 +123,10 @@ void OgreBites::StaticPluginLoader::load()
 #endif
 #ifdef OGRE_BUILD_RENDERSYSTEM_TINY
     plugin = OGRE_NEW TinyPlugin();
+    mPlugins.push_back(plugin);
+#endif
+#ifdef OGRE_BUILD_RENDERSYSTEM_VULKAN
+    plugin = OGRE_NEW VulkanPlugin();
     mPlugins.push_back(plugin);
 #endif
 #ifdef OGRE_STATIC_Direct3D11
@@ -161,6 +171,10 @@ void OgreBites::StaticPluginLoader::load()
 #endif
 #ifdef OGRE_BUILD_PLUGIN_ASSIMP
     plugin = OGRE_NEW AssimpPlugin();
+    mPlugins.push_back(plugin);
+#endif
+#ifdef OGRE_BUILD_PLUGIN_GLSLANG
+    plugin = OGRE_NEW GLSLangPlugin();
     mPlugins.push_back(plugin);
 #endif
 #endif

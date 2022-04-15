@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include "OgreMeshManager.h"
 #include "OgreMesh.h"
 #include "OgreSkeletonManager.h"
+#include "OgreSkeletonInstance.h"
 #include "OgreCompositorManager.h"
 #include "OgreTextureManager.h"
 #include "OgreFileSystem.h"
@@ -272,7 +273,7 @@ TEST(Image, Combine)
     STBIImageCodec::startup();
     ConfigFile cf;
     cf.load(FileSystemLayer(OGRE_VERSION_NAME).getConfigFilePath("resources.cfg"));
-    mgr.addResourceLocation(cf.getSettings("General").begin()->second+"/materials/textures", fs.getType());
+    mgr.addResourceLocation(cf.getSettings("General").begin()->second+"/../materials/textures", fs.getType());
     mgr.initialiseAllResourceGroups();
 
     auto testPath = cf.getSettings("Tests").begin()->second;
@@ -403,7 +404,50 @@ TEST_F(HighLevelGpuProgramTest, resolveIncludes)
                  "Hello\n"
                  "#line 1  \"bar.cg\"\n"
                  "World\n"
-                 "#line 2 \"foo.cg\"";
+                 "#line 3 \"foo.cg\"";
 
     ASSERT_EQ(res.substr(0, ref.size()), ref);
+}
+
+TEST(Math, TriangleRayIntersection)
+{
+    Vector3 tri[3] = {{-1, 0, 0}, {1, 0, 0}, {0, 1, 0}};
+    auto ray = Ray({0, 0.5, 1}, {0, 0, -1});
+
+    EXPECT_TRUE(Math::intersects(ray, tri[0], tri[1], tri[2], true, true).first);
+    EXPECT_TRUE(Math::intersects(ray, tri[0], tri[1], tri[2], true, false).first);
+    EXPECT_FALSE(Math::intersects(ray, tri[0], tri[1], tri[2], false, true).first);
+    EXPECT_FALSE(Math::intersects(ray, tri[0], tri[1], tri[2], false, false).first);
+
+    ray = Ray({0, 0.5, -1}, {0, 0, 1});
+
+    EXPECT_TRUE(Math::intersects(ray, tri[0], tri[1], tri[2], true, true).first);
+    EXPECT_FALSE(Math::intersects(ray, tri[0], tri[1], tri[2], true, false).first);
+    EXPECT_TRUE(Math::intersects(ray, tri[0], tri[1], tri[2], false, true).first);
+    EXPECT_FALSE(Math::intersects(ray, tri[0], tri[1], tri[2], false, false).first);
+}
+
+typedef RootWithoutRenderSystemFixture SkeletonTests;
+TEST_F(SkeletonTests, linkedSkeletonAnimationSource)
+{
+    auto sceneMgr = mRoot->createSceneManager();
+    auto entity = sceneMgr->createEntity("jaiqua.mesh");
+    entity->getSkeleton()->addLinkedSkeletonAnimationSource("ninja.skeleton");
+    entity->refreshAvailableAnimationState();
+    EXPECT_TRUE(entity->getAnimationState("Stealth")); // animation from ninja.sekeleton
+}
+
+TEST(MaterialLoading, LateShadowCaster)
+{
+    Root root("");
+    auto tech = MaterialManager::getSingleton().create("Material", RGN_DEFAULT)->createTechnique();
+    tech->setShadowCasterMaterial("Caster");
+    EXPECT_FALSE(tech->getShadowCasterMaterial());
+
+    MaterialManager::getSingleton().create("Caster", RGN_DEFAULT);
+
+    // force call _load() due to missing rendersystem
+    tech->_load();
+
+    EXPECT_TRUE(tech->getShadowCasterMaterial());
 }

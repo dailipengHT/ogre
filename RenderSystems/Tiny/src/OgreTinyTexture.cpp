@@ -23,14 +23,7 @@ namespace Ogre {
     {
         // have to call this here rather than in Resource destructor
         // since calling virtual methods in base destructors causes crash
-        if (isLoaded())
-        {
-            unload();
-        }
-        else
-        {
-            freeInternalResources();
-        }
+        unload();
     }
 
     // Creation / loading methods
@@ -43,15 +36,7 @@ namespace Ogre {
         // Adjust format if required.
         mFormat = TextureManager::getSingleton().getNativeFormat(mTextureType, mFormat, mUsage);
 
-        // Check requested number of mipmaps.
-        uint32 maxMips = 0;
-
-        if (PixelUtil::isCompressed(mFormat) && (mNumMipmaps == 0))
-            mNumRequestedMipmaps = 0;
-
-        mNumMipmaps = mNumRequestedMipmaps;
-        if (mNumMipmaps > maxMips)
-            mNumMipmaps = maxMips;
+        mNumMipmaps = mNumRequestedMipmaps = 0;
 
         mBuffer.create(mFormat, mWidth, mHeight, mDepth, getNumFaces(), mNumMipmaps);
 

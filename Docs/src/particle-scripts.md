@@ -4,7 +4,7 @@ Particle scripts allow you to define particle systems to be instantiated in your
 
 @tableofcontents
 
-Once scripts have been parsed, your code is free to instantiate systems based on them using the SceneManager::createParticleSystem() method which can take both a name for the new system, and the name of the template to base it on (this template name is in the script).
+Once scripts have been parsed, your code is free to instantiate systems based on them using the Ogre::SceneManager::createParticleSystem() method which can take both a name for the new system, and the name of the template to base it on (this template name is in the script).
 
 @snippet Samples/Media/particle/Examples.particle manual_sample
 
@@ -27,7 +27,7 @@ This section describes to attributes which you can set on every particle system 
 -   [iteration\_interval](#iteration_005finterval)
 -   [nonvisible\_update\_timeout](#nonvisible_005fupdate_005ftimeout)
 
-@ref Billboard-Renderer-Attributes
+@par Billboard Renderer Attributes
 
 -   [billboard\_type](#billboard_005ftype)
 -   [billboard\_origin](#billboard_005forigin)
@@ -37,7 +37,8 @@ This section describes to attributes which you can set on every particle system 
 -   [point\_rendering](#particle_005fpoint_005frendering)
 -   [accurate\_facing](#particle_005faccurate_005ffacing)
 
-See also: @ref Particle-Emitters, @ref Particle-Affectors
+@see @ref Particle-Emitters
+@see @ref Particle-Affectors
 
 
 <a name="quota"></a><a name="quota-1"></a>
@@ -228,11 +229,34 @@ format: texture_sheet_size &lt;stacks&gt; &lt;slices&gt;
 
 Particle emitters are classified by ’type’ e.g. ’Point’ emitters emit from a single point whilst ’Box’ emitters emit randomly from an area. New emitters can be added to Ogre by creating plugins. You add an emitter to a system by nesting another section within it, headed with the keyword ’emitter’ followed by the name of the type of emitter (case sensitive). Ogre currently supports ’Point’, ’Box’, ’Cylinder’, ’Ellipsoid’, ’HollowEllipsoid’ and ’Ring’ emitters.
 
-It is also possible to ’emit emitters’ - that is, have new emitters spawned based on the position of particles. See @ref Emitting-Emitters
+@see @ref Particle-Affectors
 
-<a name="Particle-Emitter-Universal-Attributes"></a>
+## Emitting Emitters {#Emitting-Emitters}
 
-## Particle Emitter Universal Attributes
+It is possible to ’emit emitters’ - that is, have new emitters spawned based on the position of particles,, for example to product ’firework’ style effects.
+
+This is controlled via the following directives:
+
+<dl compact="compact">
+<dt>emit\_emitter\_quota</dt> <dd>
+
+This parameter is a system-level parameter telling the system how many emitted emitters may be in use at any one time. This is just to allow for the space allocation process.
+
+</dd> <dt>name</dt> <dd>
+
+This parameter is an emitter-level parameter, giving a name to an emitter. This can then be referred to in another emitter as the new emitter type to spawn.
+
+</dd> <dt>emit\_emitter</dt> <dd>
+
+This is an emitter-level parameter, and if specified, it means that the particles spawned by this emitter, are themselves emitters of the named type.
+
+</dd> </dl>
+
+<a name="Particle-Emitter-Attributes"></a> <a name="Particle-Emitter-Attributes-1"></a>
+
+## Common Emitter Attributes
+
+This section describes the common attributes of all particle emitters. Specific emitter types may also support their own extra attributes.
 
 -   [angle](#angle)
 -   [colour](#colour)
@@ -254,14 +278,6 @@ It is also possible to ’emit emitters’ - that is, have new emitters spawned 
 -   [repeat\_delay](#repeat_005fdelay)
 -   [repeat\_delay\_min](#repeat_005fdelay_005fmin)
 -   [repeat\_delay\_max](#repeat_005fdelay_005fmax)
-
-@see @ref Particle-Affectors
-
-<a name="Particle-Emitter-Attributes"></a> <a name="Particle-Emitter-Attributes-1"></a>
-
-## Particle Emitter Attributes
-
-This section describes the common attributes of all particle emitters. Specific emitter types may also support their own extra attributes.
 
 <a name="angle"></a><a name="angle-1"></a>
 
@@ -307,7 +323,7 @@ format: direction\_position\_reference &lt;x&gt; &lt;y&gt; &lt;z&gt; &lt;enable&
 
 ## emission\_rate
 
-Sets how many particles per second should be emitted. The specific emitter does not have to emit these in a continuous burst - this is a relative parameter and the emitter may choose to emit all of the second’s worth of particles every half-second for example, the behaviour depends on the emitter. The emission rate will also be limited by the particle system’s ’quota’ setting.
+Sets how many particles per second should be emitted. The specific emitter does not have to emit these in a continuous manner - this is a relative parameter and the emitter may choose to emit all of the second’s worth of particles every half-second for example, the behaviour depends on the emitter. The emission rate will also be limited by the particle system’s ’quota’ setting.
 
 format: emission\_rate &lt;particles\_per\_second&gt;<br> example: emission\_rate 50<br> default: 10<br>
 
@@ -355,9 +371,12 @@ format: as time\_to\_live<br> example:<br>     time\_to\_live\_min 2<br>  �
 
 ## duration
 
-Sets the number of seconds the emitter is active. The emitter can be started again, see [repeat\_delay](#repeat_005fdelay). A value of 0 means infinite duration. See also the duration\_min and duration\_max attributes which let you set a duration range instead of a fixed one.
+Sets the number of seconds the emitter is active. The emitter can be started again, see [repeat\_delay](#repeat_005fdelay).
+See also the duration\_min and duration\_max attributes which let you set a duration range instead of a fixed one.
 
 format: duration &lt;seconds&gt;<br> example:<br>     duration 2.5<br> default: 0<br> <br>
+
+@note A value of 0 means infinite duration. A value < 0 means "burst" where @c emission_rate of particles are emitted once in the next frame.
 
 <a name="duration_005fmin"></a><a name="duration_005fmax"></a>
 
@@ -483,29 +502,6 @@ The width of the inner area which does not emit any particles.
 </dd> <dt>inner\_height</dt> <dd>
 
 The height of the inner area which does not emit any particles.
-
-</dd> </dl> 
-
-See also: [Particle Scripts](#Particle-Scripts), [Particle Emitters](#Particle-Emitters)
-
-## Emitting Emitters {#Emitting-Emitters}
-
-It is possible to spawn new emitters on the expiry of particles, for example to product ’firework’ style effects.
-
-This is controlled via the following directives:
-
-<dl compact="compact">
-<dt>emit\_emitter\_quota</dt> <dd>
-
-This parameter is a system-level parameter telling the system how many emitted emitters may be in use at any one time. This is just to allow for the space allocation process.
-
-</dd> <dt>name</dt> <dd>
-
-This parameter is an emitter-level parameter, giving a name to an emitter. This can then be referred to in another emitter as the new emitter type to spawn when an emitted particle dies.
-
-</dd> <dt>emit\_emitter</dt> <dd>
-
-This is an emitter-level parameter, and if specified, it means that when particles emitted by this emitter die, they spawn a new emitter of the named type.
 
 </dd> </dl>
 
@@ -659,12 +655,15 @@ affector ColourFader2
 
 It’s extra attributes are:
 
-<dl compact="compact">
-<dt>rate</dt> <dd>
 
+@par rate
 The amount by which to scale the particles in both the x and y direction per second.
 
-</dd> </dl>
+@par scale_range
+The scale factor range to be applied to emitted particles.
+@par
+example: scale_range 0.5 1.5<br>
+default: 1.0 1.0<br>
 
 To create a scale affector, include a section like this within your particle system script:
 
@@ -740,9 +739,11 @@ The point in time of stage 2.<br>     format: time2 &lt;0-1 based on lifetim
 
 The colour at stage 2.<br>     format: colour2 &lt;r&gt; &lt;g&gt; &lt;b&gt; \[&lt;a&gt;\]<br> example: colour2 0 0 1 1<br> default: 0.5 0.5 0.5 0.0<br>
 
-</dd> <dt>\[...\]</dt> </dl>
+</dd> </dl>
 
-The number of stages is variable. The maximal number of stages is 6; where time5 and colour5 are the last possible parameters. To create a colour interpolation affector, include a section like this within your particle system script:
+@note The number of stages is variable. The maximal number of stages is 6; where time5 and colour5 are the last possible parameters.
+
+To create a colour interpolation affector, include a section like this within your particle system script:
 
 ```cpp
 affector ColourInterpolator

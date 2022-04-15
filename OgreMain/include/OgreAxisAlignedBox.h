@@ -61,7 +61,7 @@ namespace Ogre {
             EXTENT_FINITE,
             EXTENT_INFINITE
         };
-    protected:
+    private:
 
         Vector3 mMinimum;
         Vector3 mMaximum;
@@ -271,7 +271,7 @@ namespace Ogre {
         {
             assert( (mExtent == EXTENT_FINITE) && "Can't get corners of a null or infinite AAB" );
 
-            // The order of these items is, using right-handed co-ordinates:
+            // The order of these items is, using right-handed coordinates:
             // Minimum Z face, starting with Min(all), then anticlockwise
             //   around face (looking onto the face)
             // Maximum Z face, starting with Max(all), then anticlockwise

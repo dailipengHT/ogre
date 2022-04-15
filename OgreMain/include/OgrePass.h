@@ -45,7 +45,7 @@ namespace Ogre {
      *  @{
      */
     /// Categorisation of passes for the purpose of additive lighting
-    enum IlluminationStage
+    enum IlluminationStage : uint8
     {
         /// Part of the rendering which occurs without any kind of direct lighting
         IS_AMBIENT,
@@ -131,18 +131,17 @@ namespace Ogre {
         };
 
         typedef std::vector<TextureUnitState*> TextureUnitStates;
-    protected:
+    private:
         Technique* mParent;
         String mName; /// Optional name for the pass
         uint32 mHash; /// Pass hash
-        ushort mIndex; /// Pass index
         //-------------------------------------------------------------------------
         // Colour properties, only applicable in fixed-function passes
         ColourValue mAmbient;
         ColourValue mDiffuse;
         ColourValue mSpecular;
         ColourValue mEmissive;
-        Real mShininess;
+        float mShininess;
         TrackVertexColourType mTracking;
         //-------------------------------------------------------------------------
         ColourBlendState mBlendState;
@@ -179,11 +178,11 @@ namespace Ogre {
 
         uchar mAlphaRejectVal;
 
-        CompareFunction mDepthFunc;
         float mDepthBiasConstant;
         float mDepthBiasSlopeScale;
         float mDepthBiasPerIteration;
 
+        CompareFunction mDepthFunc;
         // Alpha reject settings
         CompareFunction mAlphaRejectFunc;
 
@@ -202,57 +201,56 @@ namespace Ogre {
         /// Iterate per how many lights?
         unsigned short mLightsPerIteration;
 
-        Light::LightTypes mOnlyLightType;
+        ushort mIndex; /// Pass index
+
         /// With a specific light mask?
         uint32 mLightMask;
+
+        //-------------------------------------------------------------------------
+        // Fog
+        ColourValue mFogColour;
+        float mFogStart;
+        float mFogEnd;
+        float mFogDensity;
+        //-------------------------------------------------------------------------
+        /// line width
+        float mLineWidth;
+        /// Storage of texture unit states
+        TextureUnitStates mTextureUnitStates;
+
+        // TU Content type lookups
+        typedef std::vector<unsigned short> ContentTypeLookup;
+        mutable ContentTypeLookup mShadowContentTypeLookup;
+
+        /// Vertex program details
+        std::unique_ptr<GpuProgramUsage> mProgramUsage[GPT_COUNT];
+        /// Number of pass iterations to perform
+        size_t mPassIterationCount;
+        /// Point size, applies when not using per-vertex point size
+        float mPointMinSize;
+        float mPointMaxSize;
+        /// Size, Constant, linear, quadratic coeffs
+        Vector4f mPointAttenution;
+
+        /// User objects binding.
+        UserObjectBindings      mUserObjectBindings;
 
         /// Shading options
         ShadeOptions mShadeOptions;
         /// Polygon mode
         PolygonMode mPolygonMode;
-
-        //-------------------------------------------------------------------------
-        // Fog
-        FogMode mFogMode;
-        ColourValue mFogColour;
-        Real mFogStart;
-        Real mFogEnd;
-        Real mFogDensity;
-        //-------------------------------------------------------------------------
-
-        /// Storage of texture unit states
-        TextureUnitStates mTextureUnitStates;
-
-        /// Vertex program details
-        std::unique_ptr<GpuProgramUsage> mProgramUsage[GPT_COUNT];
-        std::unique_ptr<GpuProgramUsage> mShadowCasterVertexProgramUsage;
-        std::unique_ptr<GpuProgramUsage> mShadowCasterFragmentProgramUsage;
-        std::unique_ptr<GpuProgramUsage> mShadowReceiverVertexProgramUsage;
-        std::unique_ptr<GpuProgramUsage> mShadowReceiverFragmentProgramUsage;
-        /// Number of pass iterations to perform
-        size_t mPassIterationCount;
-        /// line width
-        float mLineWidth;
-        /// Point size, applies when not using per-vertex point size
-        Real mPointMinSize;
-        Real mPointMaxSize;
-        /// Size, Constant, linear, quadratic coeffs
-        Vector4f mPointAttenution;
-        // TU Content type lookups
-        typedef std::vector<unsigned short> ContentTypeLookup;
-        mutable ContentTypeLookup mShadowContentTypeLookup;
-
         /// Illumination stage?
         IlluminationStage mIlluminationStage;
-        /// User objects binding.
-        UserObjectBindings      mUserObjectBindings;
+
+        Light::LightTypes mOnlyLightType;
+        FogMode mFogMode;
 
         /// Used to get scene blending flags from a blending type
         void _getBlendFlags(SceneBlendType type, SceneBlendFactor& source, SceneBlendFactor& dest);
 
     public:
         typedef std::set<Pass*> PassSet;
-    protected:
+    private:
         /// List of Passes whose hashes need recalculating
         static PassSet msDirtyHashList;
         /// The place where passes go to die
@@ -283,7 +281,7 @@ namespace Ogre {
            The name of the pass is optional.  Its useful in material scripts where a material could inherit
            from another material and only want to modify a particular pass.
         */
-        void setName(const String& name);
+        void setName(const String& name) { mName = name; }
         /// Get the name of the pass
         const String& getName(void) const { return mName; }
 
@@ -306,7 +304,7 @@ namespace Ogre {
         void setAmbient(float red, float green, float blue);
 
         /// @overload
-        void setAmbient(const ColourValue& ambient);
+        void setAmbient(const ColourValue& ambient) { mAmbient = ambient; }
 
         /** Sets the diffuse colour reflectance properties of this pass.
 
@@ -324,7 +322,7 @@ namespace Ogre {
         void setDiffuse(float red, float green, float blue, float alpha);
 
         /// @overload
-        void setDiffuse(const ColourValue& diffuse);
+        void setDiffuse(const ColourValue& diffuse) { mDiffuse = diffuse; }
 
         /** Sets the specular colour reflectance properties of this pass.
 
@@ -343,7 +341,7 @@ namespace Ogre {
         void setSpecular(float red, float green, float blue, float alpha);
 
         /// @overload
-        void setSpecular(const ColourValue& specular);
+        void setSpecular(const ColourValue& specular) { mSpecular = specular; }
 
         /** Sets the shininess of the pass, affecting the size of specular highlights.
 
@@ -358,7 +356,7 @@ namespace Ogre {
         Ogre::Pass::setLightingEnabled), or, if any texture layer has a Ogre::LBO_REPLACE
         attribute.
         */
-        void setShininess(Real val);
+        void setShininess(float val) {  mShininess = val; }
 
         /** Sets the amount of self-illumination an object has.
 
@@ -376,52 +374,46 @@ namespace Ogre {
         void setSelfIllumination(float red, float green, float blue);
 
         /// @overload
-        void setSelfIllumination(const ColourValue& selfIllum);
+        void setSelfIllumination(const ColourValue& selfIllum) { mEmissive = selfIllum; }
 
         /// @copydoc setSelfIllumination
-        void setEmissive(float red, float green, float blue)
-        {
-            setSelfIllumination(red, green, blue);
-        }
+        void setEmissive(float red, float green, float blue) { setSelfIllumination(red, green, blue); }
         /// @overload
         void setEmissive(const ColourValue& emissive) { setSelfIllumination(emissive); }
 
         /** Sets which material properties follow the vertex colour
          */
-        void setVertexColourTracking(TrackVertexColourType tracking);
+        void setVertexColourTracking(TrackVertexColourType tracking) { mTracking = tracking; }
 
         /** Gets the ambient colour reflectance of the pass.
          */
-        const ColourValue& getAmbient(void) const;
+        const ColourValue& getAmbient(void) const { return mAmbient; }
 
         /** Gets the diffuse colour reflectance of the pass.
          */
-        const ColourValue& getDiffuse(void) const;
+        const ColourValue& getDiffuse(void) const { return mDiffuse; }
 
         /** Gets the specular colour reflectance of the pass.
          */
-        const ColourValue& getSpecular(void) const;
+        const ColourValue& getSpecular(void) const { return mSpecular; }
 
         /** Gets the self illumination colour of the pass.
          */
-        const ColourValue& getSelfIllumination(void) const;
+        const ColourValue& getSelfIllumination(void) const { return mEmissive; }
 
         /** Gets the self illumination colour of the pass.
             @see
             getSelfIllumination
         */
-        const ColourValue& getEmissive(void) const
-        {
-            return getSelfIllumination();
-        }
+        const ColourValue& getEmissive(void) const { return getSelfIllumination(); }
 
         /** Gets the 'shininess' property of the pass (affects specular highlights).
          */
-        Real getShininess(void) const;
+        float getShininess(void) const { return mShininess; }
 
         /** Gets which material properties follow the vertex colour
          */
-        TrackVertexColourType getVertexColourTracking(void) const;
+        TrackVertexColourType getVertexColourTracking(void) const {  return mTracking; }
 
         /** Sets whether or not dynamic lighting is enabled.
 
@@ -432,11 +424,11 @@ namespace Ogre {
             to their vertex normals for diffuse and specular light, and globally for ambient and
             emissive.
         */
-        void setLightingEnabled(bool enabled);
+        void setLightingEnabled(bool enabled) { mLightingEnabled = enabled; }
 
         /** Returns whether or not dynamic lighting is enabled.
          */
-        bool getLightingEnabled(void) const;
+        bool getLightingEnabled(void) const { return mLightingEnabled; }
         /// @}
 
         /**
@@ -481,12 +473,12 @@ namespace Ogre {
             only need to use point oriented billboards which are all of the same size. You can also
             use it for any other point list render.
         */
-        void setPointSpritesEnabled(bool enabled);
+        void setPointSpritesEnabled(bool enabled) { mPointSpritesEnabled = enabled; }
 
         /** Returns whether point sprites are enabled when rendering a
             point list.
         */
-        bool getPointSpritesEnabled(void) const;
+        bool getPointSpritesEnabled(void) const {  return mPointSpritesEnabled; }
 
         /** Sets how points are attenuated with distance.
 
@@ -509,7 +501,7 @@ namespace Ogre {
         void setPointAttenuation(bool enabled, float constant = 0.0f, float linear = 1.0f, float quadratic = 0.0f);
 
         /** Returns whether points are attenuated with distance. */
-        bool isPointAttenuationEnabled(void) const;
+        bool isPointAttenuationEnabled(void) const { return mPointAttenuationEnabled; }
 
         /** Returns the constant coefficient of point attenuation. */
         float getPointAttenuationConstant(void) const { return mPointAttenution[1]; }
@@ -560,9 +552,8 @@ namespace Ogre {
             Throws an exception if the TextureUnitState is attached to another Pass.*/
         void addTextureUnitState(TextureUnitState* state);
         /** Retrieves a const pointer to a texture unit state.
-         * @deprecated use getTextureUnitStates()
          */
-        TextureUnitState* getTextureUnitState(unsigned short index) const;
+        TextureUnitState* getTextureUnitState(size_t index) const { return mTextureUnitStates.at(index); }
         /** Retrieves the Texture Unit State matching name.
             Returns 0 if name match is not found.
         */
@@ -599,16 +590,8 @@ namespace Ogre {
          */
         void removeAllTextureUnitStates(void);
 
-        /** Returns the number of texture unit settings.
-         * @deprecated use getTextureUnitStates()
-         */
-        unsigned short getNumTextureUnitStates(void) const
-        {
-            return static_cast<unsigned short>(mTextureUnitStates.size());
-        }
-
-        /// @deprecated use getTextureUnitState("alias")->setTextureName("texture.png") instead
-        OGRE_DEPRECATED bool applyTextureAliases(const AliasTextureNamePairList& aliasList, const bool apply = true) const;
+        /** Returns the number of texture unit settings */
+        size_t getNumTextureUnitStates(void) const { return mTextureUnitStates.size(); }
 
         /** Gets the 'nth' texture which references the given content type.
             @remarks
@@ -695,27 +678,24 @@ namespace Ogre {
         */
         void setSeparateSceneBlending( const SceneBlendFactor sourceFactor, const SceneBlendFactor destFactor, const SceneBlendFactor sourceFactorAlpha, const SceneBlendFactor destFactorAlpha );
 
-        /// @deprecated
-        OGRE_DEPRECATED bool hasSeparateSceneBlending() const;
-
         /// Retrieves the complete blend state of this pass
         const ColourBlendState& getBlendState() const { return mBlendState; }
 
         /** Retrieves the source blending factor for the material
          */
-        SceneBlendFactor getSourceBlendFactor() const;
+        SceneBlendFactor getSourceBlendFactor() const { return mBlendState.sourceFactor; }
 
         /** Retrieves the destination blending factor for the material
          */
-        SceneBlendFactor getDestBlendFactor() const;
+        SceneBlendFactor getDestBlendFactor() const { return mBlendState.destFactor; }
 
         /** Retrieves the alpha source blending factor for the material
          */
-        SceneBlendFactor getSourceBlendFactorAlpha() const;
+        SceneBlendFactor getSourceBlendFactorAlpha() const { return mBlendState.sourceFactorAlpha; }
 
         /** Retrieves the alpha destination blending factor for the material
          */
-        SceneBlendFactor getDestBlendFactorAlpha() const;
+        SceneBlendFactor getDestBlendFactorAlpha() const { return mBlendState.destFactorAlpha; }
 
         /** Sets the specific operation used to blend source and destination pixels together.
 
@@ -734,14 +714,11 @@ namespace Ogre {
         */
         void setSeparateSceneBlendingOperation(SceneBlendOperation op, SceneBlendOperation alphaOp);
 
-        /// @deprecated
-        OGRE_DEPRECATED bool hasSeparateSceneBlendingOperations() const;
-
         /** Returns the current blending operation */
-        SceneBlendOperation getSceneBlendingOperation() const;
+        SceneBlendOperation getSceneBlendingOperation() const { return mBlendState.operation; }
 
         /** Returns the current alpha blending operation */
-        SceneBlendOperation getSceneBlendingOperationAlpha() const;
+        SceneBlendOperation getSceneBlendingOperationAlpha() const {  return mBlendState.alphaOperation; }
 
         /** Sets whether or not colour buffer writing is enabled for this %Pass.
 
@@ -780,11 +757,11 @@ namespace Ogre {
             Also see setDepthFunction for more advanced depth check configuration.
             @see Ogre::CompareFunction
         */
-        void setDepthCheckEnabled(bool enabled);
+        void setDepthCheckEnabled(bool enabled) {  mDepthCheck = enabled; }
 
         /** Returns whether or not this pass renders with depth-buffer checking on or not.
         */
-        bool getDepthCheckEnabled(void) const;
+        bool getDepthCheckEnabled(void) const { return mDepthCheck; }
 
         /** Sets whether or not this pass renders with depth-buffer writing on or not.
 
@@ -796,11 +773,11 @@ namespace Ogre {
             normally be on but can be turned off when rendering static backgrounds or when rendering a collection
             of transparent objects at the end of a scene so that they overlap each other correctly.
         */
-        void setDepthWriteEnabled(bool enabled);
+        void setDepthWriteEnabled(bool enabled) { mDepthWrite = enabled; }
 
         /** Returns whether or not this pass renders with depth-buffer writing on or not.
         */
-        bool getDepthWriteEnabled(void) const;
+        bool getDepthWriteEnabled(void) const { return mDepthWrite; }
 
         /** Sets the function used to compare depth values when depth checking is on.
 
@@ -808,12 +785,12 @@ namespace Ogre {
             value of the pixel to be written and the current contents of the buffer. This comparison is
             normally Ogre::CMPF_LESS_EQUAL.
         */
-        void setDepthFunction( CompareFunction func );
+        void setDepthFunction( CompareFunction func ) {  mDepthFunc = func; }
         /** Returns the function used to compare depth values when depth checking is on.
             @see
             setDepthFunction
         */
-        CompareFunction getDepthFunction(void) const;
+        CompareFunction getDepthFunction(void) const {  return mDepthFunc; }
 
         /** Sets the depth bias to be used for this material.
 
@@ -840,26 +817,26 @@ namespace Ogre {
         void setDepthBias(float constantBias, float slopeScaleBias = 0.0f);
 
         /** Retrieves the const depth bias value as set by setDepthBias. */
-        float getDepthBiasConstant(void) const;
+        float getDepthBiasConstant(void) const { return mDepthBiasConstant; }
         /** Retrieves the slope-scale depth bias value as set by setDepthBias. */
-        float getDepthBiasSlopeScale(void) const;
+        float getDepthBiasSlopeScale(void) const { return mDepthBiasSlopeScale; }
         /** Sets a factor which derives an additional depth bias from the number
             of times a pass is iterated.
             @remarks
             The Final depth bias will be the constant depth bias as set through
             setDepthBias, plus this value times the iteration number.
         */
-        void setIterationDepthBias(float biasPerIteration);
+        void setIterationDepthBias(float biasPerIteration) { mDepthBiasPerIteration = biasPerIteration; }
         /** Gets a factor which derives an additional depth bias from the number
             of times a pass is iterated.
         */
-        float getIterationDepthBias() const;
+        float getIterationDepthBias() const { return mDepthBiasPerIteration; }
         /// @}
 
         /** Sets the culling mode for this pass based on the 'vertex winding'.
             A typical way for the rendering engine to cull triangles is based on the 'vertex winding' of
             triangles. Vertex winding refers to the direction in which the vertices are passed or indexed
-            to in the rendering operation as viewed from the camera, and will wither be clockwise or
+            to in the rendering operation as viewed from the camera, and will either be clockwise or
             anticlockwise (that's 'counterclockwise' for you Americans out there ;) The default is
             Ogre::CULL_CLOCKWISE i.e. that only triangles whose vertices are passed/indexed in anticlockwise order
             are rendered - this is a common approach and is used in 3D studio models for example. You can
@@ -868,11 +845,11 @@ namespace Ogre {
             You may wish to use the Ogre::CULL_NONE option for mesh data that you cull yourself where the vertex
             winding is uncertain or for creating 2-sided passes.
         */
-        void setCullingMode( CullingMode mode );
+        void setCullingMode( CullingMode mode ) { mCullMode = mode; }
 
         /** Returns the culling mode for geometry rendered with this pass. See setCullingMode for more information.
          */
-        CullingMode getCullingMode(void) const;
+        CullingMode getCullingMode(void) const { return mCullMode; }
 
         /** Sets the manual culling mode, performed by CPU rather than hardware.
 
@@ -905,40 +882,34 @@ namespace Ogre {
             vertex. Whether these values are interpolated across the face (and how) depends on this
             setting. The default shading method is Ogre::SO_GOURAUD.
         */
-        void setShadingMode( ShadeOptions mode );
+        void setShadingMode( ShadeOptions mode ) { mShadeOptions = mode; }
 
         /** Returns the type of light shading to be used.
          */
-        ShadeOptions getShadingMode(void) const;
+        ShadeOptions getShadingMode(void) const { return mShadeOptions; }
 
         /** Sets the type of polygon rendering required
             
             Sets how polygons should be rasterised, i.e. whether they should be filled in, or just drawn as lines or points.
             The default shading method is Ogre::PM_SOLID.
         */
-        void setPolygonMode( PolygonMode mode );
+        void setPolygonMode( PolygonMode mode ) { mPolygonMode = mode; }
 
         /** Returns the type of light shading to be used.
          */
-        PolygonMode getPolygonMode(void) const;
+        PolygonMode getPolygonMode(void) const { return mPolygonMode; }
 
         /** Sets whether the PolygonMode set on this pass can be downgraded by the camera
 
          @param override If set to false, this pass will always be rendered at its own chosen polygon mode no matter what the
          camera says. The default is true.
         */
-        void setPolygonModeOverrideable(bool override)
-        {
-            mPolygonModeOverrideable = override;
-        }
+        void setPolygonModeOverrideable(bool override) { mPolygonModeOverrideable = override; }
 
         /** Gets whether this renderable's chosen detail level can be
             overridden (downgraded) by the camera setting.
         */
-        bool getPolygonModeOverrideable(void) const
-        {
-            return mPolygonModeOverrideable;
-        }
+        bool getPolygonModeOverrideable(void) const { return mPolygonModeOverrideable; }
 
         /// @name Fogging
         /// @{
@@ -975,39 +946,39 @@ namespace Ogre {
             bool overrideScene,
             FogMode mode = FOG_NONE,
             const ColourValue& colour = ColourValue::White,
-            Real expDensity = 0.001f, Real linearStart = 0.0f, Real linearEnd = 1.0f );
+            float expDensity = 0.001f, float linearStart = 0.0f, float linearEnd = 1.0f );
 
         /** Returns true if this pass is to override the scene fog settings.
          */
-        bool getFogOverride(void) const;
+        bool getFogOverride(void) const { return mFogOverride; }
 
         /** Returns the fog mode for this pass.
             @note
             Only valid if getFogOverride is true.
         */
-        FogMode getFogMode(void) const;
+        FogMode getFogMode(void) const { return mFogMode; }
 
         /** Returns the fog colour for the scene.
          */
-        const ColourValue& getFogColour(void) const;
+        const ColourValue& getFogColour(void) const { return mFogColour; }
 
         /** Returns the fog start distance for this pass.
             @note
             Only valid if getFogOverride is true.
         */
-        Real getFogStart(void) const;
+        float getFogStart(void) const { return mFogStart; }
 
         /** Returns the fog end distance for this pass.
             @note
             Only valid if getFogOverride is true.
         */
-        Real getFogEnd(void) const;
+        float getFogEnd(void) const { return mFogEnd; }
 
         /** Returns the fog density for this pass.
             @note
             Only valid if getFogOverride is true.
         */
-        Real getFogDensity(void) const;
+        float getFogDensity(void) const { return mFogDensity; }
         /// @}
 
         /// @name Alpha Rejection
@@ -1024,11 +995,11 @@ namespace Ogre {
 
         /** Sets the alpha reject function. @see setAlphaRejectSettings for more information.
          */
-        void setAlphaRejectFunction(CompareFunction func);
+        void setAlphaRejectFunction(CompareFunction func) { mAlphaRejectFunc = func; }
 
         /** Gets the alpha reject value. @see setAlphaRejectSettings for more information.
          */
-        void setAlphaRejectValue(unsigned char val);
+        void setAlphaRejectValue(unsigned char val) { mAlphaRejectVal = val; }
 
         /** Gets the alpha reject function. @see setAlphaRejectSettings for more information.
          */
@@ -1047,7 +1018,7 @@ namespace Ogre {
             The common use for alpha to coverage is foliage rendering and chain-link fence style
             textures.
         */
-        void setAlphaToCoverageEnabled(bool enabled);
+        void setAlphaToCoverageEnabled(bool enabled) { mAlphaToCoverageEnabled = enabled; }
 
         /** Gets whether to use alpha to coverage (A2C) when blending alpha rejected values.
          */
@@ -1066,11 +1037,11 @@ namespace Ogre {
             @note
             This will have no effect on non-transparent materials.
         */
-        void setTransparentSortingEnabled(bool enabled);
+        void setTransparentSortingEnabled(bool enabled) { mTransparentSorting = enabled; }
 
         /** Returns whether or not transparent sorting is enabled.
          */
-        bool getTransparentSortingEnabled(void) const;
+        bool getTransparentSortingEnabled(void) const { return mTransparentSorting; }
 
         /** Sets whether or not transparent sorting is forced.
             @param enabled
@@ -1081,11 +1052,11 @@ namespace Ogre {
             performed when the material is transparent and depth write/check are disabled.
             This function disables these extra conditions.
         */
-        void setTransparentSortingForced(bool enabled);
+        void setTransparentSortingForced(bool enabled) {  mTransparentSortingForced = enabled; }
 
         /** Returns whether or not transparent sorting is forced.
          */
-        bool getTransparentSortingForced(void) const;
+        bool getTransparentSortingForced(void) const { return mTransparentSortingForced; }
 
         /// @name Light Iteration
         /// @{
@@ -1097,9 +1068,9 @@ namespace Ogre {
             parameter sets the limit on the number of lights which should apply to objects
             rendered with this pass.
         */
-        void setMaxSimultaneousLights(unsigned short maxLights);
+        void setMaxSimultaneousLights(unsigned short maxLights) { mMaxSimultaneousLights = maxLights; }
         /** Gets the maximum number of lights to be used by this pass. */
-        unsigned short getMaxSimultaneousLights(void) const;
+        unsigned short getMaxSimultaneousLights(void) const { return mMaxSimultaneousLights; }
 
         /** Sets the light index that this pass will start at in the light list.
 
@@ -1111,14 +1082,14 @@ namespace Ogre {
             if you choose to iterate this pass per light too, the iteration will
             only begin from light 4.
         */
-        void setStartLight(unsigned short startLight);
+        void setStartLight(unsigned short startLight) { mStartLight = startLight; }
         /** Gets the light index that this pass will start at in the light list. */
-        unsigned short getStartLight(void) const;
+        unsigned short getStartLight(void) const { return mStartLight; }
 
         /** Sets the light mask which can be matched to specific light flags to be handled by this pass */
-        void setLightMask(uint32 mask);
+        void setLightMask(uint32 mask) { mLightMask = mask; }
         /** Gets the light mask controlling which lights are used for this pass */
-        uint32 getLightMask() const;
+        uint32 getLightMask() const { return mLightMask; }
 
         /** Sets whether or not this pass should iterate per light or number of
             lights which can affect the object being rendered.
@@ -1182,11 +1153,11 @@ namespace Ogre {
             The start of the iteration is set by Pass::setStartLight and the end
             by Pass::setMaxSimultaneousLights.
         */
-        void setLightCountPerIteration(unsigned short c);
+        void setLightCountPerIteration(unsigned short c) { mLightsPerIteration = c; }
         /** If light iteration is enabled, determine the number of lights per
             iteration.
         */
-        unsigned short getLightCountPerIteration(void) const;
+        unsigned short getLightCountPerIteration(void) const { return mLightsPerIteration; }
         /// @}
 
         /// Gets the parent Technique
@@ -1217,73 +1188,22 @@ namespace Ogre {
         bool hasTessellationDomainProgram(void) const { return hasGpuProgram(GPT_DOMAIN_PROGRAM); }
         /// Returns true if this pass uses a programmable compute pipeline
         bool hasComputeProgram(void) const { return hasGpuProgram(GPT_COMPUTE_PROGRAM); }
-        /// Returns true if this pass uses a shadow caster vertex program
-        bool hasShadowCasterVertexProgram(void) const { return mShadowCasterVertexProgramUsage != NULL; }
-        /// Returns true if this pass uses a shadow caster fragment program
-        bool hasShadowCasterFragmentProgram(void) const { return mShadowCasterFragmentProgramUsage != NULL; }
-        /// Returns true if this pass uses a shadow receiver vertex program
-        bool hasShadowReceiverVertexProgram(void) const { return mShadowReceiverVertexProgramUsage != NULL; }
-        /// Returns true if this pass uses a shadow receiver fragment program
-        bool hasShadowReceiverFragmentProgram(void) const { return mShadowReceiverFragmentProgramUsage != NULL; }
         /// Gets the Gpu program used by this pass, only available after _load()
         const GpuProgramPtr& getGpuProgram(GpuProgramType programType) const;
         /// @overload
-        const GpuProgramPtr& getVertexProgram(void) const;
+        const GpuProgramPtr& getVertexProgram(void) const { return getGpuProgram(GPT_VERTEX_PROGRAM); }
         /// @overload
-        const GpuProgramPtr& getFragmentProgram(void) const;
+        const GpuProgramPtr& getFragmentProgram(void) const { return getGpuProgram(GPT_FRAGMENT_PROGRAM); }
         /// @overload
-        const GpuProgramPtr& getGeometryProgram(void) const;
+        const GpuProgramPtr& getGeometryProgram(void) const { return getGpuProgram(GPT_GEOMETRY_PROGRAM); }
         /// @overload
-        const GpuProgramPtr& getTessellationHullProgram(void) const;
+        const GpuProgramPtr& getTessellationHullProgram(void) const { return getGpuProgram(GPT_HULL_PROGRAM); }
         /// @overload
-        const GpuProgramPtr& getTessellationDomainProgram(void) const;
+        const GpuProgramPtr& getTessellationDomainProgram(void) const { return getGpuProgram(GPT_DOMAIN_PROGRAM); }
         /// @overload
-        const GpuProgramPtr& getComputeProgram(void) const;
+        const GpuProgramPtr& getComputeProgram(void) const { return getGpuProgram(GPT_COMPUTE_PROGRAM); }
 
         bool hasGpuProgram(GpuProgramType programType) const;
-
-        /// @deprecated use Ogre::Technique::setShadowCasterMaterial
-        OGRE_DEPRECATED void setShadowCasterVertexProgram(const String& name);
-        /// @deprecated use Ogre::Technique::setShadowCasterMaterial
-        OGRE_DEPRECATED void setShadowCasterVertexProgramParameters(GpuProgramParametersSharedPtr params);
-        /// @deprecated use Ogre::Technique::getShadowCasterMaterial
-        const String& getShadowCasterVertexProgramName(void) const;
-        /// @deprecated use Ogre::Technique::getShadowCasterMaterial
-        GpuProgramParametersSharedPtr getShadowCasterVertexProgramParameters(void) const;
-        /// @deprecated use Ogre::Technique::getShadowCasterMaterial
-        const GpuProgramPtr& getShadowCasterVertexProgram(void) const;
-        /// @deprecated use Ogre::Technique::setShadowCasterMaterial
-        OGRE_DEPRECATED void setShadowCasterFragmentProgram(const String& name);
-        /// @deprecated use Ogre::Technique::setShadowCasterMaterial
-        OGRE_DEPRECATED void setShadowCasterFragmentProgramParameters(GpuProgramParametersSharedPtr params);
-        /// @deprecated use Ogre::Technique::getShadowCasterMaterial
-        const String& getShadowCasterFragmentProgramName(void) const;
-        /// @deprecated use Ogre::Technique::getShadowCasterMaterial
-        GpuProgramParametersSharedPtr getShadowCasterFragmentProgramParameters(void) const;
-        /// @deprecated use Ogre::Technique::getShadowCasterMaterial
-        const GpuProgramPtr& getShadowCasterFragmentProgram(void) const;
-
-        /// @deprecated use Ogre::Technique::setShadowReceiverMaterial
-        OGRE_DEPRECATED void setShadowReceiverVertexProgram(const String& name);
-        /// @deprecated use Ogre::Technique::setShadowReceiverMaterial
-        OGRE_DEPRECATED void setShadowReceiverVertexProgramParameters(GpuProgramParametersSharedPtr params);
-        /// @deprecated use Ogre::Technique::setShadowReceiverMaterial
-        OGRE_DEPRECATED void setShadowReceiverFragmentProgram(const String& name);
-        /// @deprecated use Ogre::Technique::setShadowReceiverMaterial
-        OGRE_DEPRECATED void setShadowReceiverFragmentProgramParameters(GpuProgramParametersSharedPtr params);
-
-        /// @deprecated use Ogre::Technique::getShadowReceiverMaterial
-        const String& getShadowReceiverVertexProgramName(void) const;
-        /// @deprecated use Ogre::Technique::getShadowReceiverMaterial
-        GpuProgramParametersSharedPtr getShadowReceiverVertexProgramParameters(void) const;
-        /// @deprecated use Ogre::Technique::getShadowReceiverMaterial
-        const GpuProgramPtr& getShadowReceiverVertexProgram(void) const;
-        /// @deprecated use Ogre::Technique::getShadowReceiverMaterial
-        const String& getShadowReceiverFragmentProgramName(void) const;
-        /// @deprecated use Ogre::Technique::getShadowReceiverMaterial
-        GpuProgramParametersSharedPtr getShadowReceiverFragmentProgramParameters(void) const;
-        /// @deprecated use Ogre::Technique::getShadowReceiverMaterial
-        const GpuProgramPtr& getShadowReceiverFragmentProgram(void) const;
 
         /** Sets the details of the program to use.
             @remarks
@@ -1537,13 +1457,9 @@ namespace Ogre {
             Generally the smaller your lights are the more chance you’ll see a benefit rather than
             a penalty from clipping.
 
-            @note A specific note about OpenGL: user clip planes are completely ignored when you use
-            an ARB vertex program. This means light clip planes won’t help much if you use ARB
-            vertex programs on GL, although OGRE will perform some optimisation of its own, in that
-            if it sees that the clip volume is completely off-screen, it won’t perform a render at
-            all. When using GLSL, user clipping can be used but you have to use gl_ClipVertex in your
-            shader, see the GLSL documentation for more information. In Direct3D user clip planes are
-            always respected.
+            @note Only has an effect with the fixed-function pipeline. Exceptions:
+            - with D3D9, clip planes are even available when shaders are used
+            - with GL1, shaders must write to gl_ClipVertex
         */
         void setLightClipPlanesEnabled(bool enabled) { mLightClipPlanes = enabled; }
         /** Gets whether or not this pass will be clipped by user clips planes
@@ -1623,18 +1539,12 @@ namespace Ogre {
          */
         static HashFunc* getBuiltinHashFunction(BuiltinHashFunction builtin);
 
-        /** Return an instance of user objects binding associated with this class.
-            You can use it to associate one or more custom objects with this class instance.
-            @see UserObjectBindings::setUserAny.
-        */
+        /// @copydoc UserObjectBindings
         UserObjectBindings&     getUserObjectBindings() { return mUserObjectBindings; }
 
-        /** Return an instance of user objects binding associated with this class.
-            You can use it to associate one or more custom objects with this class instance.
-            @see UserObjectBindings::setUserAny.
-        */
+        /// @overload
         const UserObjectBindings& getUserObjectBindings() const { return mUserObjectBindings; }
-     protected:
+     private:
         std::unique_ptr<GpuProgramUsage>& getProgramUsage(GpuProgramType programType);
         const std::unique_ptr<GpuProgramUsage>& getProgramUsage(GpuProgramType programType) const;
     };

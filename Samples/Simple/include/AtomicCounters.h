@@ -21,8 +21,6 @@ using namespace OgreBites;
 class _OgreSampleClassExport Sample_AtomicCounters : public SdkSample
 {
  public:
-    std::unique_ptr<Rectangle2D> mRect;
-
     Sample_AtomicCounters()
     {
         mInfo["Title"] = "Atomic Counters";
@@ -33,11 +31,7 @@ class _OgreSampleClassExport Sample_AtomicCounters : public SdkSample
 
     void testCapabilities(const RenderSystemCapabilities* caps)
     {
-        if (!caps->hasCapability(RSC_READ_WRITE_BUFFERS))
-        {
-            OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED, "Your render system / hardware does not support atomic counters, "
-                        "so you cannot run this sample. Sorry!");
-        }
+        requireMaterial("Example/RasterizationOrder");
     }
 
     bool frameEnded(const FrameEvent& evt)
@@ -53,12 +47,11 @@ class _OgreSampleClassExport Sample_AtomicCounters : public SdkSample
         float w = 480.0 / mWindow->getWidth();
         float h = 480.0 / mWindow->getHeight();
 
-        mRect.reset(new Rectangle2D);
-        mRect->setCorners(-w, h, w, -h);
-        mRect->setBoundingBox(AxisAlignedBox::BOX_INFINITE);
+        auto rect = mSceneMgr->createScreenSpaceRect();
+        rect->setCorners(-w, h, w, -h, false);
 
         MaterialPtr mat = MaterialManager::getSingleton().getByName("Example/RasterizationOrder");
-        mRect->setMaterial(mat);
-        mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(mRect.get());
+        rect->setMaterial(mat);
+        mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(rect);
     }
 };

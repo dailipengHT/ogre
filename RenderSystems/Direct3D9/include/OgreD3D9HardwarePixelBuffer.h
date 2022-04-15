@@ -53,11 +53,15 @@ namespace Ogre {
             /// Temporary volume in main memory if direct locking of mVolume is not possible
             IDirect3DVolume9* tempVolume;
             /// Mip map texture.
-            IDirect3DBaseTexture9 *mipTex;          
+            IDirect3DBaseTexture9 *mipTex;
+            // for depth only RTTs
+            IDirect3DSurface9* nullSurface;
         };
 
         typedef std::map<IDirect3DDevice9*, BufferResources*>  DeviceToBufferResourcesMap;
         typedef DeviceToBufferResourcesMap::iterator            DeviceToBufferResourcesIterator;
+
+        BufferResources* createOrRetrieveResources(IDirect3DDevice9* d3d9Device);
 
         /// Map between device to buffer resources.
         DeviceToBufferResourcesMap  mMapDeviceToBufferResources;
@@ -65,9 +69,6 @@ namespace Ogre {
         /// Mipmapping
         bool mDoMipmapGen;
         bool mHWMipmaps;
-        
-        /// Render target
-        D3D9RenderTexture* mRenderTexture;
 
         // The owner texture if exists.
         D3D9Texture* mOwnerTexture;
@@ -86,7 +87,6 @@ namespace Ogre {
         void unlockBuffer(BufferResources* bufferResources);
 
         BufferResources* getBufferResources(IDirect3DDevice9* d3d9Device);
-        BufferResources* createBufferResources();
     
         /// updates render texture.
         void updateRenderTexture(bool writeGamma, uint fsaa, const String& srcName);
@@ -131,13 +131,22 @@ namespace Ogre {
         RenderTexture *getRenderTarget(size_t zoffset);
 
         /// Accessor for surface
-        IDirect3DSurface9 *getSurface(IDirect3DDevice9* d3d9Device);
-        
-        /// Accessor for AA surface
-        IDirect3DSurface9 *getFSAASurface(IDirect3DDevice9* d3d9Device);
+        IDirect3DSurface9* getSurface(IDirect3DDevice9* d3d9Device)
+        {
+            return createOrRetrieveResources(d3d9Device)->surface;
+        }
 
-        /// Notify TextureBuffer of destruction of render target
-        virtual void _clearSliceRTT(size_t zoffset);
+        /// Accessor for AA surface
+        IDirect3DSurface9* getFSAASurface(IDirect3DDevice9* d3d9Device)
+        {
+            return createOrRetrieveResources(d3d9Device)->fSAASurface;
+        }
+
+        /// For depth-only targets
+        IDirect3DSurface9* getNullSurface(IDirect3DDevice9* d3d9Device)
+        {
+            return createOrRetrieveResources(d3d9Device)->nullSurface;
+        }
 
         /// Release surfaces held by this pixel buffer.
         void releaseSurfaces(IDirect3DDevice9* d3d9Device);

@@ -100,7 +100,7 @@ namespace Ogre {
         void _calcTempSquareDist(const Vector3& worldPos);
 
         /// Defines the type of light
-        enum LightTypes
+        enum LightTypes : uint8
         {
             /// Point light sources give off light equally in all directions, so require only position not direction
             LT_POINT = 0,
@@ -314,11 +314,10 @@ namespace Ogre {
         */
         Real getPowerScale(void) const;
 
-        /** @copydoc MovableObject::getBoundingBox */
-        const AxisAlignedBox& getBoundingBox(void) const;
+        Real getBoundingRadius(void) const override { return 0; }
+        const AxisAlignedBox& getBoundingBox(void) const override;
 
-        /** @copydoc MovableObject::_updateRenderQueue */
-        void _updateRenderQueue(RenderQueue* queue);
+        void _updateRenderQueue(RenderQueue* queue) override {} // No rendering
 
         /** @copydoc MovableObject::getMovableType */
         const String& getMovableType(void) const;
@@ -356,9 +355,6 @@ namespace Ogre {
             means it no longer affects the scene.
         */
         void setVisible(bool visible) { MovableObject::setVisible(visible); }
-
-        /** @copydoc MovableObject::getBoundingRadius */
-        Real getBoundingRadius(void) const { return 0; /* not visible */ }
 
         /** Returns the details of this light as a 4D vector.
         @remarks
@@ -415,9 +411,8 @@ namespace Ogre {
         /** Return a pointer to the custom shadow camera setup (null means use SceneManager global version). */
         const ShadowCameraSetupPtr& getCustomShadowCameraSetup(void) const;
 
-        /// @copydoc MovableObject::visitRenderables
         void visitRenderables(Renderable::Visitor* visitor, 
-            bool debugRenderables = false);
+            bool debugRenderables = false) override;
 
         /** Returns the index at which this light is in the current render.
         @remarks
@@ -568,8 +563,7 @@ namespace Ogre {
         */
         bool isInLightRange(const Ogre::AxisAlignedBox& container) const;
     
-    protected:
-        LightTypes mLightType;
+    private:
 #ifdef OGRE_NODELESS_POSITIONING
         Vector3 mPosition;
         Vector3 mDirection;
@@ -593,10 +587,9 @@ namespace Ogre {
         Real mSpotNearClip;
         // range, const, linear, quad coeffs
         Vector4f mAttenuation;
-        Real mPowerScale;
-        size_t mIndexInFrame;
         Real mShadowFarDist;
         Real mShadowFarDistSquared;
+        size_t mIndexInFrame;
         
         Real mShadowNearClipDist;
         Real mShadowFarClipDist;
@@ -615,14 +608,15 @@ namespace Ogre {
         typedef std::map<uint16, Vector4> CustomParameterMap;
         /// Stores the custom parameters for the light.
         CustomParameterMap mCustomParameters;
-
+        Real mPowerScale;
+        LightTypes mLightType;
         bool mOwnShadowFarDist;
     };
 
     /** Factory object for creating Light instances. */
     class _OgreExport LightFactory : public MovableObjectFactory
     {
-    protected:
+    private:
         MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params);
     public:
         LightFactory() {}

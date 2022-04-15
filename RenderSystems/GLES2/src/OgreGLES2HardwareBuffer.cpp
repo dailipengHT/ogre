@@ -63,12 +63,6 @@ namespace Ogre {
         }
         
         mRenderSystem->_getStateCacheManager()->bindGLBuffer(mTarget, mBufferId);
-
-        if(mRenderSystem->getCapabilities()->hasCapability(RSC_DEBUG))
-        {
-            OGRE_CHECK_GL_ERROR(glLabelObjectEXT(GL_BUFFER_OBJECT_EXT, mBufferId, 0, ("Buffer #" + StringConverter::toString(mBufferId)).c_str()));
-        }
-
         OGRE_CHECK_GL_ERROR(glBufferData(mTarget, mSizeInBytes, NULL, getGLUsage(mUsage)));
     }
 
@@ -98,12 +92,10 @@ namespace Ogre {
             if (writeOnly)
             {
                 access = GL_MAP_WRITE_BIT_EXT;
-                if (options == HardwareBuffer::HBL_DISCARD ||
-                    options == HardwareBuffer::HBL_NO_OVERWRITE)
-                {
-                    // Discard the buffer
-                    access |= GL_MAP_INVALIDATE_RANGE_BIT_EXT;
-                }
+                if (options == HBL_NO_OVERWRITE)
+                    access |= GL_MAP_UNSYNCHRONIZED_BIT_EXT;
+                if (options == HBL_DISCARD)
+                    OGRE_CHECK_GL_ERROR(glBufferData(mTarget, mSizeInBytes, NULL, getGLUsage(mUsage)));
             }
             else if (options == HardwareBuffer::HBL_READ_ONLY)
                 access = GL_MAP_READ_BIT_EXT;
@@ -146,25 +138,21 @@ namespace Ogre {
             return;
         }
 
-        if(!OGRE_NO_GLES3_SUPPORT || mRenderSystem->checkExtension("GL_EXT_map_buffer_range"))
-        {
-            // Map the buffer range then copy out of it into our destination buffer
-            void* srcData;
-            OGRE_CHECK_GL_ERROR(srcData = glMapBufferRangeEXT(mTarget, offset, length, GL_MAP_READ_BIT_EXT));
-            memcpy(pDest, srcData, length);
+        OgreAssert(mRenderSystem->getCapabilities()->hasCapability(RSC_MAPBUFFER),
+                   "Read hardware buffer is not supported");
 
-            // Unmap the buffer since we are done.
-            GLboolean mapped;
-            OGRE_CHECK_GL_ERROR(mapped = glUnmapBufferOES(mTarget));
-            if(!mapped)
-            {
-                OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, "Buffer data corrupted, please reload",
-                            "GLES2HardwareBuffer::readData");
-            }
-        }
-        else
+        mRenderSystem->_getStateCacheManager()->bindGLBuffer(mTarget, mBufferId);
+        // Map the buffer range then copy out of it into our destination buffer
+        void* srcData;
+        OGRE_CHECK_GL_ERROR(srcData = glMapBufferRangeEXT(mTarget, offset, length, GL_MAP_READ_BIT_EXT));
+        memcpy(pDest, srcData, length);
+
+        // Unmap the buffer since we are done.
+        GLboolean mapped;
+        OGRE_CHECK_GL_ERROR(mapped = glUnmapBufferOES(mTarget));
+        if(!mapped)
         {
-            OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, "Read hardware buffer is not supported",
+            OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, "Buffer data corrupted, please reload",
                         "GLES2HardwareBuffer::readData");
         }
     }

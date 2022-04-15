@@ -19,11 +19,11 @@ list(APPEND HEADER_FILES
 file(GLOB SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 if(OGRE_BUILD_COMPONENT_OVERLAY_IMGUI)
-  set(IMGUI_DIR "${PROJECT_BINARY_DIR}/imgui-1.79" CACHE PATH "")
+  set(IMGUI_DIR "${PROJECT_BINARY_DIR}/imgui-1.85" CACHE PATH "")
   if(NOT EXISTS ${IMGUI_DIR})
     message(STATUS "Downloading imgui")
     file(DOWNLOAD
-        https://github.com/ocornut/imgui/archive/v1.79.tar.gz
+        https://github.com/ocornut/imgui/archive/v1.85.tar.gz
         ${PROJECT_BINARY_DIR}/imgui.tar.gz)
     execute_process(COMMAND ${CMAKE_COMMAND}
         -E tar xf imgui.tar.gz WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
@@ -31,9 +31,13 @@ if(OGRE_BUILD_COMPONENT_OVERLAY_IMGUI)
   list(APPEND SOURCE_FILES
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
     ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/imgui_demo.cpp
-    ${IMGUI_DIR}/misc/freetype/imgui_freetype.cpp)
+    ${IMGUI_DIR}/imgui_demo.cpp)
+  if(FREETYPE_FOUND)
+    set(IMGUI_ENABLE_FREETYPE TRUE)
+    list(APPEND SOURCE_FILES ${IMGUI_DIR}/misc/freetype/imgui_freetype.cpp)
+  endif()
 else()
     list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/OgreImGuiOverlay.cpp")
 endif()
@@ -41,11 +45,22 @@ endif()
 # setup target
 add_library(OgreOverlay ${OGRE_COMP_LIB_TYPE} ${HEADER_FILES} ${SOURCE_FILES})
 set_target_properties(OgreOverlay PROPERTIES VERSION ${OGRE_SOVERSION} SOVERSION ${OGRE_SOVERSION})
-target_link_libraries(OgreOverlay PUBLIC OgreMain PRIVATE ${FREETYPE_LIBRARIES} ZLIB::ZLIB)
+target_link_libraries(OgreOverlay PUBLIC OgreMain)
 target_include_directories(OgreOverlay PUBLIC 
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  $<INSTALL_INTERFACE:include/OGRE/Overlay>
-  PRIVATE ${FREETYPE_INCLUDE_DIRS})
+  $<INSTALL_INTERFACE:include/OGRE/Overlay>)
+
+if(FREETYPE_FOUND)
+  target_compile_definitions(OgreOverlay PRIVATE HAVE_FREETYPE)
+  target_link_libraries(OgreOverlay PRIVATE ${FREETYPE_LIBRARIES})
+  target_include_directories(OgreOverlay PRIVATE ${FREETYPE_INCLUDE_DIRS})
+  if(ZLIB_FOUND)
+    target_link_libraries(OgreOverlay PRIVATE ZLIB::ZLIB)
+  endif()
+elseif(UNIX)
+  set_source_files_properties(src/OgreFont.cpp PROPERTIES
+    COMPILE_FLAGS "-Wno-cast-qual -Wno-unused-function")
+endif()
 
 if(OGRE_BUILD_COMPONENT_OVERLAY_IMGUI)
   target_include_directories(OgreOverlay PUBLIC
@@ -64,7 +79,11 @@ if(OGRE_BUILD_COMPONENT_OVERLAY_IMGUI)
       COMPILE_FLAGS "-Wno-cast-qual")
   endif()
 
-  configure_file(${OGRE_TEMPLATES_DIR}/imconfig.h ${IMGUI_DIR}/imconfig.h COPYONLY)
+  if(MINGW)
+    target_link_libraries(OgreOverlay PRIVATE imm32)
+  endif()
+
+  configure_file(${OGRE_TEMPLATES_DIR}/imconfig.h ${IMGUI_DIR}/imconfig.h)
 
   list(APPEND HEADER_FILES
     ${IMGUI_DIR}/imgui.h

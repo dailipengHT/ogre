@@ -33,7 +33,6 @@ THE SOFTWARE.
 #include "OgreMetalRenderSystem.h"
 #include "OgreTextureManager.h"
 #include "OgreStringConverter.h"
-#include "OgreMetalDepthTexture.h"
 #include "OgreMetalDepthBuffer.h"
 #include "OgreBitwise.h"
 
@@ -41,11 +40,6 @@ THE SOFTWARE.
 
 namespace Ogre
 {
-    static uint32 getMaxMipmapCount(uint32 w, uint32 h, uint32 d) {
-        // see ARB_texture_non_power_of_two
-        return Bitwise::mostSignificantBitSet(std::max(w, std::max(h, d)));
-    }
-
     MetalTexture::MetalTexture( ResourceManager* creator, const String& name, ResourceHandle handle,
                                 const String& group, bool isManual, ManualResourceLoader* loader,
                                 MetalDevice *device ) :
@@ -60,14 +54,7 @@ namespace Ogre
     {
         // have to call this here rather than in Resource destructor
         // since calling virtual methods in base destructors causes crash
-        if (isLoaded())
-        {
-            unload();
-        }
-        else
-        {
-            freeInternalResources();
-        }
+        unload();
     }
     //-----------------------------------------------------------------------------------
     MTLTextureType MetalTexture::getMetalTextureTarget(void) const
@@ -77,7 +64,6 @@ namespace Ogre
             case TEX_TYPE_1D:
                 return MTLTextureType1D;
             case TEX_TYPE_2D:
-            case TEX_TYPE_2D_RECT:
                 return MTLTextureType2D;
             case TEX_TYPE_CUBE_MAP:
                 return MTLTextureTypeCube;
@@ -96,16 +82,8 @@ namespace Ogre
         mFormat = TextureManager::getSingleton().getNativeFormat( mTextureType, mFormat, mUsage );
         const MTLTextureType texTarget = getMetalTextureTarget();
 
-        // Check requested number of mipmaps
-        const size_t maxMips = getMaxMipmapCount( mWidth, mHeight,
-                                                             mTextureType == TEX_TYPE_3D ? mDepth : 1 );
-
-        if( (PixelUtil::isCompressed(mFormat) && (mNumMipmaps == 0)) || mTextureType == TEX_TYPE_1D )
-            mNumRequestedMipmaps = 0;
-
-        mNumMipmaps = mNumRequestedMipmaps;
-        if( mNumMipmaps > maxMips )
-            mNumMipmaps = maxMips;
+        if(mTextureType == TEX_TYPE_1D )
+            mNumMipmaps = mNumRequestedMipmaps = 0;
 
         // If we can do automip generation and the user desires this, do so
         mMipmapsHardwareGenerated = !PixelUtil::isCompressed( mFormat );
@@ -161,7 +139,7 @@ namespace Ogre
         createSurfaceList();
 
         if( (mUsage & TU_AUTOMIPMAP) &&
-            mNumRequestedMipmaps && mMipmapsHardwareGenerated )
+            mNumMipmaps && mMipmapsHardwareGenerated )
         {
             __unsafe_unretained id<MTLBlitCommandEncoder> blitEncoder = mDevice->getBlitEncoder();
             [blitEncoder generateMipmapsForTexture:mTexture];
@@ -221,16 +199,15 @@ namespace Ogre
         {
         #if OGRE_DEBUG_MODE
             RenderTarget *renderTarget = mSurfaceList[0]->getRenderTarget();
+            assert( dynamic_cast<MetalRenderTexture*>( renderTarget ) );
             if( PixelUtil::isDepth( renderTarget->suggestPixelFormat() ) )
             {
-                assert( dynamic_cast<MetalDepthTextureTarget*>( renderTarget ) );
                 MetalDepthBuffer *depthBuffer = static_cast<MetalDepthBuffer*>(
                             renderTarget->getDepthBuffer() );
                 assert( depthBuffer->mDepthAttachmentDesc.loadAction != MTLLoadActionClear );
             }
             else
             {
-                assert( dynamic_cast<MetalRenderTexture*>( renderTarget ) );
                 MetalRenderTexture *renderTexture = static_cast<MetalRenderTexture*>( renderTarget );
                 assert( renderTexture->mColourAttachmentDesc.loadAction != MTLLoadActionClear );
             }

@@ -25,10 +25,6 @@ if (OGRE_BUILD_SAMPLES)
   	set(SAMPLE_DEPENDENCIES ${SAMPLE_DEPENDENCIES} OgreVolume)
   endif ()
   
-  if (OGRE_BUILD_COMPONENT_HLMS)
-  	set(SAMPLE_DEPENDENCIES ${SAMPLE_DEPENDENCIES} OgreHLMS)
-  endif ()
-  
   if (OGRE_BUILD_COMPONENT_MESHLODGENERATOR AND OGRE_CONFIG_ENABLE_MESHLOD)
   	set(SAMPLE_DEPENDENCIES ${SAMPLE_DEPENDENCIES} OgreMeshLodGenerator)
   endif ()
@@ -47,6 +43,9 @@ if (OGRE_BUILD_SAMPLES)
   set(BLACKLIST Browser TerrainTessellation)
   if(NOT OGRE_BUILD_PLUGIN_PCZ)
     list(APPEND BLACKLIST PCZTestApp)
+  endif()
+  if(NOT OGRE_BUILD_COMPONENT_TERRAIN)
+    list(APPEND BLACKLIST EndlessWorld)
   endif()
 
   foreach(FILTER_SAMPLE ${BLACKLIST})
@@ -82,32 +81,6 @@ if (OGRE_BUILD_SAMPLES)
   ## Add browser last
   add_subdirectory(Browser)
 endif ()
-
-
-  
-# Install sample sources
-if (OGRE_INSTALL_SAMPLES_SOURCE)
-  if (WIN32 OR APPLE)
-    set(OGRE_SAMPLES_DIR Samples)
-  elseif (UNIX)
-    set(OGRE_SAMPLES_DIR share/OGRE/Samples)
-  endif ()
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ DESTINATION ${OGRE_SAMPLES_DIR}
-    REGEX "^CMakeLists.txt$" EXCLUDE
-    PATTERN "Makefile.am" EXCLUDE
-    PATTERN "Media" EXCLUDE
-    PATTERN "bin" EXCLUDE
-    PATTERN "setup" EXCLUDE
-    PATTERN ".hg" EXCLUDE
-	PATTERN "obj" EXCLUDE
-	PATTERN "scripts" EXCLUDE
-  )
-endif ()
-
-# Install sample headers, some people rely on these
-file(GLOB SAMPLE_COMMON_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/Common/include/*.h")
-install(FILES ${SAMPLE_COMMON_HEADERS}
-		DESTINATION include/OGRE)
 		
 if (MSVC AND OGRE_BUILD_SAMPLES)
   find_package(Wix)

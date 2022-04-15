@@ -122,7 +122,7 @@ namespace Ogre {
             LF_DEFAULT = 0,
             /// Process non-reloadable resources too.
             LF_INCLUDE_NON_RELOADABLE = 1,
-            /// Process only resources which are not referenced by any other object. Usefull to reduce resource consumption.
+            /// Process only resources which are not referenced by any other object. Useful to reduce resource consumption.
             LF_ONLY_UNREFERENCED = 2,
             /// Combination of LF_ONLY_UNREFERENCED and LF_INCLUDE_NON_RELOADABLE
             LF_ONLY_UNREFERENCED_INCLUDE_NON_RELOADABLE = 3,
@@ -151,7 +151,7 @@ namespace Ogre {
         String mOrigin;
         /// Optional manual loader; if provided, data is loaded from here instead of a file
         ManualResourceLoader* mLoader;
-    protected: // private in 1.13
+    private:
         /// State count, the number of times this resource has changed state
         size_t mStateCount;
 
@@ -195,12 +195,12 @@ namespace Ogre {
         */
         virtual void postUnloadImpl(void) {}
 
-        /** Internal implementation of the meat of the 'prepare' action. 
+        /** Internal implementation of the meat of the 'prepare' action, only called if this
+            resource is not being loaded from a ManualResourceLoader.
         */
         virtual void prepareImpl(void) {}
-        /** Internal function for undoing the 'prepare' action.  Called when
-            the load is completed, and when resources are unloaded when they
-            are prepared but not yet loaded.
+        /** Internal function for undoing the 'prepare' action. Only called during
+            unload if this resource is prepared but not yet loaded.
         */
         virtual void unprepareImpl(void) {}
         /** Internal implementation of the meat of the 'load' action, only called if this 
@@ -212,6 +212,8 @@ namespace Ogre {
         */
         virtual void unloadImpl(void) = 0;
 
+        /** Calculate the size of a resource; this will only be called after 'load' */
+        virtual size_t calculateSize(void) const;
     public:
         /** Standard constructor.
         @param creator Pointer to the ResourceManager that is creating this resource
@@ -454,10 +456,6 @@ namespace Ogre {
         yourself.
         */
         void _fireUnloadingComplete(void);
-
-        /** Calculate the size of a resource; this will only be called after 'load' */
-        virtual size_t calculateSize(void) const;
-
     };
 
     /** Interface describing a manual resource loader.

@@ -35,6 +35,11 @@ THE SOFTWARE.
 #ifndef __OgreStableHeaders__
 #define __OgreStableHeaders__
 
+extern "C" {
+#   include <sys/types.h>
+#   include <sys/stat.h>
+}
+
 #include "OgreConfig.h"
 #include "OgreExports.h"
 #include "OgrePrerequisites.h"
@@ -77,7 +82,10 @@ THE SOFTWARE.
 #include "OgrePlatformInformation.h"
 #include "OgreProfiler.h"
 #include "OgreQuaternion.h"
+#include "OgreRadixSort.h"
 #include "OgreRay.h"
+#include "OgreRectangle2D.h"
+#include "OgreBuiltinMovableFactories.h"
 #include "OgreRenderSystem.h"
 #include "OgreResourceGroupManager.h"
 #include "OgreResource.h"
@@ -103,7 +111,6 @@ THE SOFTWARE.
 #include "Threading/OgreThreadHeaders.h"
 #include "OgreUserObjectBindings.h"
 #include "OgreVector.h"
-#include "OgreWireBoundingBox.h"
 #if OGRE_NO_ZIP_ARCHIVE == 0
 #   include "OgreZip.h"
 #endif

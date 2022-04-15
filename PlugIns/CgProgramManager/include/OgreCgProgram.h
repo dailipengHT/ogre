@@ -51,13 +51,6 @@ namespace Ogre {
     class CgProgram : public HighLevelGpuProgram
     {
     public:
-        /// Command object for setting entry point
-        class CmdEntryPoint : public ParamCommand
-        {
-        public:
-            String doGet(const void* target) const;
-            void doSet(void* target, const String& val);
-        };
         /// Command object for setting profiles
         class CmdProfiles : public ParamCommand
         {
@@ -75,7 +68,6 @@ namespace Ogre {
 
     protected:
 
-        static CmdEntryPoint msCmdEntryPoint;
         static CmdProfiles msCmdProfiles;
         static CmdArgs msCmdArgs;
 
@@ -90,7 +82,7 @@ namespace Ogre {
         /// Internal unload implementation, must be implemented by subclasses
         void unloadHighLevelImpl(void);
         /// Populate the passed parameters with name->index map, must be overridden
-        void buildConstantDefinitions() const;
+        void buildConstantDefinitions() override;
 
         /// Load the high-level part in a thread-safe way, required for delegate functionality
         void loadHighLevelSafe();
@@ -101,7 +93,6 @@ namespace Ogre {
         void mapTypeAndElementSize(CGtype cgType, bool isRegisterCombiner, GpuConstantDefinition& def) const;
 
         StringVector mProfiles;
-        String mEntryPoint;
         String mSelectedProfile;
         String mProgramString;
         CGprofile mSelectedCgProfile;

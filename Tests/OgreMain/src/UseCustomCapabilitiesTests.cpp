@@ -69,7 +69,6 @@ static void checkCaps(const Ogre::RenderSystemCapabilities* caps)
 
     EXPECT_EQ(caps->hasCapability(RSC_HWOCCLUSION), true);
     EXPECT_EQ(caps->hasCapability(RSC_USER_CLIP_PLANES), true);
-    EXPECT_EQ(caps->hasCapability(RSC_VERTEX_FORMAT_UBYTE4), true);
     EXPECT_EQ(caps->hasCapability(RSC_HWRENDER_TO_TEXTURE), true);
     EXPECT_EQ(caps->hasCapability(RSC_TEXTURE_FLOAT), true);
 
@@ -102,18 +101,11 @@ static void checkCaps(const Ogre::RenderSystemCapabilities* caps)
 
     EXPECT_EQ(caps->getMaxPointSize(), (Real)1024);
     EXPECT_EQ(caps->getNonPOW2TexturesLimited(), false);
-    EXPECT_EQ(caps->getVertexTextureUnitsShared(), true);
     EXPECT_EQ(caps->getNumTextureUnits(), (Ogre::ushort)16);
-    EXPECT_EQ(caps->getStencilBufferBitDepth(), (Ogre::ushort)8);
     EXPECT_EQ(caps->getNumMultiRenderTargets(), (Ogre::ushort)4);
 
     EXPECT_EQ(caps->getVertexProgramConstantFloatCount(), (Ogre::ushort)256);
-    EXPECT_EQ(caps->getVertexProgramConstantIntCount(), (Ogre::ushort)0);
-    EXPECT_EQ(caps->getVertexProgramConstantBoolCount(), (Ogre::ushort)0);
-
     EXPECT_EQ(caps->getFragmentProgramConstantFloatCount(), (Ogre::ushort)64);
-    EXPECT_EQ(caps->getFragmentProgramConstantIntCount(), (Ogre::ushort)0);
-    EXPECT_EQ(caps->getFragmentProgramConstantBoolCount(), (Ogre::ushort)0);
 
     EXPECT_EQ(caps->getNumVertexTextureUnits(), (Ogre::ushort)0);
     EXPECT_TRUE(caps->isShaderProfileSupported("arbvp1"));

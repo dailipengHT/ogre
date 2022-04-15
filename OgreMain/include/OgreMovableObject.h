@@ -332,29 +332,17 @@ namespace Ogre {
         }
 
         /** @deprecated use UserObjectBindings::setUserAny via getUserObjectBindings() instead.
-            Sets any kind of user value on this object.
-        @remarks
-            This method allows you to associate any user value you like with 
-            this MovableObject. This can be a pointer back to one of your own
-            classes for instance.       
         */
         OGRE_DEPRECATED void setUserAny(const Any& anything) { getUserObjectBindings().setUserAny(anything); }
 
         /** @deprecated use UserObjectBindings::getUserAny via getUserObjectBindings() instead.
-            Retrieves the custom user value associated with this object.
         */
         OGRE_DEPRECATED const Any& getUserAny(void) const { return getUserObjectBindings().getUserAny(); }
 
-        /** Return an instance of user objects binding associated with this class.
-        You can use it to associate one or more custom objects with this class instance.
-        @see UserObjectBindings::setUserAny.        
-        */
+        /// @copydoc UserObjectBindings
         UserObjectBindings& getUserObjectBindings() { return mUserObjectBindings; }
 
-        /** Return an instance of user objects binding associated with this class.
-        You can use it to associate one or more custom objects with this class instance.
-        @see UserObjectBindings::setUserAny.        
-        */
+        /// @overload
         const UserObjectBindings& getUserObjectBindings() const { return mUserObjectBindings; }
 
         /** Sets the render queue group this entity will be rendered through.
@@ -508,10 +496,9 @@ namespace Ogre {
         EdgeData* getEdgeList(void) { return NULL; }
         /// Define a default implementation of method from ShadowCaster which implements no shadows
         const ShadowRenderableList& getShadowVolumeRenderableList(
-            ShadowTechnique shadowTechnique, const Light* light, 
-            HardwareIndexBufferSharedPtr* indexBuffer, size_t* indexBufferUsedSize,
-            bool extrudeVertices, Real extrusionDist, unsigned long flags = 0);
-        
+            const Light* light, const HardwareIndexBufferPtr& indexBuffer,
+            size_t& indexBufferUsedSize, float extrusionDist, int flags = 0) override;
+
         const AxisAlignedBox& getLightCapBounds(void) const override;
         const AxisAlignedBox& getDarkCapBounds(const Light& light, Real dirLightExtrusionDist) const override;
         /** Sets whether or not this object will cast shadows.
@@ -587,7 +574,7 @@ namespace Ogre {
     */
     class _OgreExport MovableObjectFactory : public MovableAlloc
     {
-    protected:
+    private:
         /// Type flag, allocated if requested
         uint32 mTypeFlag;
 

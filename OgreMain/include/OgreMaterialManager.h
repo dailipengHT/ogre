@@ -46,6 +46,12 @@ namespace Ogre {
     /** \addtogroup Materials
     *  @{
     */
+
+    /// Default material scheme name
+    _OgreExport extern const String MSN_DEFAULT;
+    /// Material scheme of the shader generator
+    _OgreExport extern const String MSN_SHADERGEN;
+
     /** Class for managing Material settings for %Ogre.
 
         Materials control the eventual surface rendering properties of geometry. This class
@@ -124,7 +130,7 @@ namespace Ogre {
 			virtual bool beforeIlluminationPassesCleared(Technique* technique) { return false; }
         };
 
-    protected:
+    private:
         /// Default settings
         MaterialPtr mDefaultSettings;
 
@@ -147,7 +153,7 @@ namespace Ogre {
         ListenerMap mListenerMap;
 
     public:
-        /// Default material scheme
+        /// same as @ref MSN_DEFAULT
         static String DEFAULT_SCHEME_NAME;
 
         /// Create a new material
@@ -158,7 +164,7 @@ namespace Ogre {
         
         /// Get a resource by name
         /// @see ResourceManager::getResourceByName
-        MaterialPtr getByName(const String& name, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME);
+        MaterialPtr getByName(const String& name, const String& groupName = ResourceGroupManager::AUTODETECT_RESOURCE_GROUP_NAME) const;
 
         /// Get a default material that is always available even when no resources were loaded
         /// @param useLighting whether the material should be lit
@@ -175,11 +181,6 @@ namespace Ogre {
         /** Initialises the material manager, which also triggers it to 
          * parse all available .program and .material scripts. */
         void initialise(void);
-        
-        /** @see ScriptLoader::parseScript
-        */
-        void parseScript(DataStreamPtr& stream, const String& groupName);
-
 
         /** Sets the default texture filtering to be used for loaded textures, for when textures are
             loaded automatically (e.g. by Material class) or when 'load' is called with the default

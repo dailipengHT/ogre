@@ -51,11 +51,15 @@ namespace Ogre {
         shadow map on the visible areas of the scene. This results in better
         shadow map texel usage, at the expense of some 'swimming' of the shadow
         texture on receivers as the basis is constantly being reevaluated.
-    @note
+
         Original implementation by Matthias Fink <matthias.fink@web.de>, 2006.
     */
-    class _OgreExport FocusedShadowCameraSetup : public ShadowCameraSetup
+    class _OgreExport FocusedShadowCameraSetup : public DefaultShadowCameraSetup
     {
+        // Persistent calculations to prevent reallocation
+        mutable ConvexBody mBodyB;
+        /// Use tighter focus region?
+        bool mUseAggressiveRegion;
     protected:
         /** Transform to or from light space as defined by Wimmer et al.
         @remarks
@@ -67,19 +71,8 @@ namespace Ogre {
         static const Matrix4 msNormalToLightSpace;
         static const Matrix4 msLightSpaceToNormal;
 
-        /** Temporary preallocated frustum to set up a projection matrix in 
-            calculateShadowMappingMatrix().
-        */
-        std::unique_ptr<Frustum> mTempFrustum;
-
-        /** Temporary preallocated camera to set up a light frustum for clipping in FocusedShadowCameraSetup::calculateB.
-        */
-        SceneNode mLightFrustumCameraNode;
-        std::unique_ptr<Camera> mLightFrustumCamera;
+        mutable const Camera* mLightFrustumCamera;
         mutable bool mLightFrustumCameraCalculated;
-
-        /// Use tighter focus region?
-        bool mUseAggressiveRegion;
 
         /** Internal class holding a point list representation of a convex body.
         */
@@ -142,34 +135,13 @@ namespace Ogre {
         };
 
         // Persistent calculations to prevent reallocation
-        mutable ConvexBody mBodyB;
         mutable PointListBody mPointListBodyB;
         mutable PointListBody mPointListBodyLVS;
 
     protected:
-        /** Calculates the standard shadow mapping matrix.
-        @remarks
-            Provides the view and projection matrix for standard shadow mapping.
-        @note
-            You can choose which things you want to have: view matrix and/or projection 
-            matrix and/or shadow camera. Passing a NULL value as parameter ignores the
-            generation of this specific value.
-        @param sm
-            Scene manager.
-        @param cam
-            Currently active camera.
-        @param light
-            Currently active light.
-        @param out_view
-            Calculated uniform view shadow mapping matrix (may be @c NULL).
-        @param out_proj
-            Calculated uniform projection shadow mapping matrix (may be @c NULL).
-        @param out_cam
-            Calculated uniform shadow camera (may be @c NULL).
-        */
-        void calculateShadowMappingMatrix(const SceneManager& sm, const Camera& cam, 
+        OGRE_DEPRECATED void calculateShadowMappingMatrix(const SceneManager& sm, const Camera& cam,
             const Light& light, Affine3 *out_view,
-            Matrix4 *out_proj, Camera *out_cam) const;
+            Matrix4 *out_proj, Frustum *out_cam) const;
 
         /** Calculates the intersection bodyB.
         @remarks
@@ -261,13 +233,6 @@ namespace Ogre {
             are mapped to the unit cube.
         */
         Matrix4 transformToUnitCube(const Matrix4& m, const PointListBody& body) const;
-
-        /** Builds a view matrix.
-        @remarks
-            Builds a standard view matrix out of a given position, direction and up vector.
-        */
-        Affine3 buildViewMatrix(const Vector3& pos, const Vector3& dir, const Vector3& up) const;
-
     public:
         /// @deprecated use create()
         FocusedShadowCameraSetup(bool useAggressiveRegion = true);

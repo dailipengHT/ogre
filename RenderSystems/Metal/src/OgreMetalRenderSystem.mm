@@ -57,7 +57,6 @@ namespace Ogre
         RenderSystem(),
         mInitialized( false ),
         mHardwareBufferManager( 0 ),
-        mShaderManager( 0 ),
         mMetalProgramFactory( 0 ),
         mCurrentIndexBuffer( 0 ),
         mCurrentVertexBuffer( 0 ),
@@ -117,9 +116,6 @@ namespace Ogre
             mMetalProgramFactory = 0;
         }
 
-        OGRE_DELETE mShaderManager;
-        mShaderManager = 0;
-
         OGRE_DELETE mTextureManager;
         mTextureManager = 0;
     }
@@ -127,12 +123,6 @@ namespace Ogre
     const String& MetalRenderSystem::getName(void) const
     {
         static String strName("Metal Rendering Subsystem");
-        return strName;
-    }
-    //-------------------------------------------------------------------------
-    const String& MetalRenderSystem::getFriendlyName(void) const
-    {
-        static String strName("Metal_RS");
         return strName;
     }
     //-------------------------------------------------------------------------
@@ -146,12 +136,12 @@ namespace Ogre
         RenderSystemCapabilities* rsc = new RenderSystemCapabilities();
         rsc->setRenderSystemName(getName());
 
+        rsc->setDeviceName(mActiveDevice->mDevice.name.UTF8String);
+
         rsc->setCapability(RSC_HWSTENCIL);
-        rsc->setStencilBufferBitDepth(8);
         rsc->setNumTextureUnits(16);
         rsc->setNumVertexTextureUnits(16);
         rsc->setCapability(RSC_ANISOTROPY);
-        rsc->setCapability(RSC_DOT3);
         rsc->setCapability(RSC_TEXTURE_COMPRESSION);
 #if TARGET_OS_TV
         rsc->setCapability(RSC_TEXTURE_COMPRESSION_ASTC);
@@ -173,8 +163,6 @@ namespace Ogre
         rsc->setCapability(RSC_TWO_SIDED_STENCIL);
         rsc->setCapability(RSC_STENCIL_WRAP);
         rsc->setCapability(RSC_USER_CLIP_PLANES);
-        rsc->setCapability(RSC_VERTEX_FORMAT_UBYTE4);
-        rsc->setCapability(RSC_INFINITE_FAR_PLANE);
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
         if( [mActiveDevice->mDevice supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v1] )
 #endif
@@ -192,7 +180,6 @@ namespace Ogre
         rsc->setCapability(RSC_TEXTURE_3D);
         // rsc->setCapability(RSC_TEXTURE_SIGNED_INT);
         rsc->setCapability(RSC_VERTEX_PROGRAM);
-        rsc->setCapability(RSC_FRAGMENT_PROGRAM);
         rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
         rsc->setCapability(RSC_MIPMAP_LOD_BIAS);
         rsc->setCapability(RSC_ALPHA_TO_COVERAGE);
@@ -206,14 +193,8 @@ namespace Ogre
 
         //These don't make sense on Metal, so just use flexible defaults.
         rsc->setVertexProgramConstantFloatCount( 16384 );
-        rsc->setVertexProgramConstantBoolCount( 16384 );
-        rsc->setVertexProgramConstantIntCount( 16384 );
         rsc->setFragmentProgramConstantFloatCount( 16384 );
-        rsc->setFragmentProgramConstantBoolCount( 16384 );
-        rsc->setFragmentProgramConstantIntCount( 16384 );
         rsc->setComputeProgramConstantFloatCount( 16384 );
-        rsc->setComputeProgramConstantBoolCount( 16384 );
-        rsc->setComputeProgramConstantIntCount( 16384 );
 
 #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
         uint8 mrtCount = 8u;
@@ -363,10 +344,10 @@ namespace Ogre
             vpParams->setNamedAutoConstant("mvpMtx", GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
 
             // create const buffer to back VP (currently unused)
-            if(auto sz = vpParams->getFloatConstantList().size())
+            if(auto sz = vpParams->getConstantList().size())
             {
-                mAutoParamsBuffer.reset(new MetalHardwareBufferCommon(sz * sizeof(float), HBU_CPU_TO_GPU,
-                                                                      false, 4, NULL, &mDevice));
+                mAutoParamsBuffer.reset(new MetalHardwareBufferCommon(sz, HBU_CPU_TO_GPU,
+                                                                      false, 4, &mDevice));
             }
         }
 
@@ -423,7 +404,7 @@ namespace Ogre
         desc.storageMode = MTLStorageModePrivate;
 #endif
 
-        PixelFormat desiredDepthBufferFormat = PF_DEPTH32F;//renderTarget->getDesiredDepthBufferFormat();
+        PixelFormat desiredDepthBufferFormat = PF_DEPTH24_STENCIL8;//renderTarget->getDesiredDepthBufferFormat();
 
         MTLPixelFormat depthFormat = MTLPixelFormatInvalid;
         MTLPixelFormat stencilFormat = MTLPixelFormatInvalid;
@@ -460,9 +441,8 @@ namespace Ogre
 
         DepthBuffer *retVal = new MetalDepthBuffer( 0, this, renderTarget->getWidth(),
                                                     renderTarget->getHeight(),
-                                                    renderTarget->getFSAA(), 0,
-                                                    desiredDepthBufferFormat,
-                                                    /*renderTarget->prefersDepthTexture()*/ false, false,
+                                                    renderTarget->getFSAA(),
+                                                    depthFormat, false,
                                                     depthTexture, stencilTexture,
                                                     mActiveDevice );
 
@@ -840,8 +820,7 @@ namespace Ogre
 
         psd.colorAttachments[0].pixelFormat =  MetalMappings::getPixelFormat(
                         mActiveRenderTarget->suggestPixelFormat(), mActiveRenderTarget->isHardwareGammaEnabled() );
-        // TODO check mActiveRenderTarget->getDepthBuffer().. but this is the only supported one for now
-        psd.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
+        psd.depthAttachmentPixelFormat = static_cast<MetalDepthBuffer*>(mActiveRenderTarget->getDepthBuffer())->getFormat();
 
         MTLVertexDescriptor *vertexDescriptor = [psd vertexDescriptor];
         [vertexDescriptor reset];
@@ -867,10 +846,18 @@ namespace Ogre
             [mActiveRenderEncoder setVertexBuffer:mtlbuf->getBufferName(unused) offset:0 atIndex:bufferIdx];
         }
 
+        if(mDepthStencilDescChanged)
+        {
+            mDepthStencilState =
+                    [mActiveDevice->mDevice newDepthStencilStateWithDescriptor:mDepthStencilDesc];
+            mDepthStencilDescChanged = false;
+        }
+
+        [mActiveRenderEncoder setDepthStencilState:mDepthStencilState];
+
         [mActiveRenderEncoder setRenderPipelineState:getPipelineState()];
 
         const size_t numberOfInstances = op.numberOfInstances;
-        const bool hasInstanceData = mCurrentVertexBuffer->vertexBufferBinding->hasInstanceData();
 
         // Render to screen!
         if( op.useIndexes )
@@ -931,7 +918,7 @@ namespace Ogre
                 const uint32 vertexStart = static_cast<uint32>( mCurrentVertexBuffer->vertexStart );
 #endif
 
-                if (hasInstanceData)
+                if (numberOfInstances > 1)
                 {
                     [mActiveRenderEncoder drawPrimitives:mCurrentPrimType
                                              vertexStart:vertexStart
@@ -998,19 +985,17 @@ namespace Ogre
         // update const buffer
         #if 1
         [mActiveRenderEncoder setVertexBytes:params->getFloatPointer(0)
-            length:params->getFloatConstantList().size()*sizeof(float) atIndex:16];
+            length:params->getConstantList().size() atIndex:MetalProgram::UNIFORM_INDEX_START];
         #else
-        // TODO rather use this:
+        // TODO rather use this, but buffer seems to be never updated
         size_t unused;
-        mAutoParamsBuffer->writeData(0, params->getFloatConstantList().size()*sizeof(float), params->getFloatPointer(0));
-        [mActiveRenderEncoder setVertexBuffer:mAutoParamsBuffer->getBufferName(unused) offset:0 atIndex:16];
-        // or
-        // shader->updateBuffers( params, mAutoParamsBuffer->lockImpl()  );
+        mAutoParamsBuffer->writeData(0, params->getConstantList().size(), params->getFloatPointer(0));
+        [mActiveRenderEncoder setVertexBuffer:mAutoParamsBuffer->getBufferName(unused) offset:0 atIndex:MetalProgram::UNIFORM_INDEX_START];
         #endif
     }
     //-------------------------------------------------------------------------
     void MetalRenderSystem::clearFrameBuffer( unsigned int buffers, const ColourValue& colour,
-                                             Real depth, unsigned short stencil )
+                                             float depth, unsigned short stencil )
     {
         if( buffers & FBT_COLOUR )
         {
@@ -1038,27 +1023,6 @@ namespace Ogre
                 mCurrentDepthBuffer->mStencilAttachmentDesc.loadAction = MTLLoadActionClear;
                 mCurrentDepthBuffer->mStencilAttachmentDesc.clearStencil = stencil;
             }
-        }
-    }
-    //-------------------------------------------------------------------------
-    void MetalRenderSystem::discardFrameBuffer( unsigned int buffers )
-    {
-        if( buffers & FBT_COLOUR )
-        {
-            for( size_t i=0; i<mNumMRTs; ++i )
-            {
-                if( mCurrentColourRTs[i] )
-                    mCurrentColourRTs[i]->mColourAttachmentDesc.loadAction = MTLLoadActionDontCare;
-            }
-        }
-
-        if( mCurrentDepthBuffer )
-        {
-            if( buffers & FBT_DEPTH && mCurrentDepthBuffer->mDepthAttachmentDesc )
-                mCurrentDepthBuffer->mDepthAttachmentDesc.loadAction = MTLLoadActionDontCare;
-
-            if( buffers & FBT_STENCIL && mCurrentDepthBuffer->mStencilAttachmentDesc )
-                mCurrentDepthBuffer->mStencilAttachmentDesc.loadAction = MTLLoadActionDontCare;
         }
     }
     //-------------------------------------------------------------------------
@@ -1093,16 +1057,15 @@ namespace Ogre
 
         mActiveRenderTarget = target;
 
-        if( target )
+        if( auto metalTarget = dynamic_cast<MetalRenderTargetCommon*>(target) )
         {
             //if( target->getForceDisableColourWrites() )
             //    viewportRenderTargetFlags &= ~VP_RTT_COLOUR_WRITE;
 
-            mCurrentColourRTs[0] = 0;
+            mCurrentColourRTs[0] = metalTarget;
             //We need to set mCurrentColourRTs[0] to grab the active device,
             //even if we won't be drawing to colour target.
             target->getCustomAttribute( "mNumMRTs", &mNumMRTs );
-            target->getCustomAttribute( "MetalRenderTargetCommon", &mCurrentColourRTs[0] );
 
             MetalDevice *ownerDevice = 0;
 
@@ -1164,50 +1127,6 @@ namespace Ogre
         }
     }
     //-------------------------------------------------------------------------
-    void MetalRenderSystem::_notifyCompositorNodeSwitchedRenderTarget( RenderTarget *previousTarget )
-    {
-        if( previousTarget )
-        {
-            bool mustClear = false;
-            uint8 numMRTs = 0;
-            MetalRenderTargetCommon *currentColourRTs[OGRE_MAX_MULTIPLE_RENDER_TARGETS];
-            previousTarget->getCustomAttribute( "mNumMRTs", &numMRTs );
-            previousTarget->getCustomAttribute( "MetalRenderTargetCommon", &currentColourRTs[0] );
-
-            for( size_t i=0; i<numMRTs; ++i )
-            {
-                if( currentColourRTs[i] )
-                {
-                    if( currentColourRTs[i]->mColourAttachmentDesc.loadAction == MTLLoadActionClear )
-                        mustClear = true;
-                }
-            }
-
-            MetalDepthBuffer *depthBuffer = static_cast<MetalDepthBuffer*>(
-                        previousTarget->getDepthBuffer() );
-
-            if( depthBuffer )
-            {
-                if( depthBuffer->mDepthAttachmentDesc &&
-                    depthBuffer->mDepthAttachmentDesc.loadAction == MTLLoadActionClear )
-                {
-                    mustClear = true;
-                }
-                if( depthBuffer->mStencilAttachmentDesc &&
-                    depthBuffer->mStencilAttachmentDesc.loadAction == MTLLoadActionClear )
-                {
-                    mustClear = true;
-                }
-            }
-
-            if( mustClear )
-            {
-                _setRenderTarget( previousTarget );
-                createRenderEncoder();
-            }
-        }
-    }
-    //-------------------------------------------------------------------------
     void MetalRenderSystem::initGPUProfiling(void)
     {
 #if OGRE_PROFILING
@@ -1251,21 +1170,13 @@ namespace Ogre
     void MetalRenderSystem::initialiseFromRenderSystemCapabilities(RenderSystemCapabilities* caps, RenderTarget* primary)
     {
         //DepthBuffer::DefaultDepthBufferFormat = PF_D32_FLOAT_X24_S8_UINT;
-        mShaderManager = OGRE_NEW GpuProgramManager();
         mMetalProgramFactory = new MetalProgramFactory( &mDevice );
         HighLevelGpuProgramManager::getSingleton().addFactory( mMetalProgramFactory );
     }
     //-------------------------------------------------------------------------
-    void MetalRenderSystem::setStencilCheckEnabled(bool enabled)
+    void MetalRenderSystem::setStencilState(const StencilState& state)
     {
-        // Save this info so we can transfer it into a new encoder if necessary
-        mStencilEnabled = enabled;
-    }
-    void MetalRenderSystem::setStencilBufferParams( CompareFunction func,
-        uint32 refValue, uint32 compareMask, uint32 writeMask, StencilOperation stencilFailOp,
-        StencilOperation depthFailOp, StencilOperation passOp,
-        bool twoSidedOperation, bool readBackAsTexture )
-    {
+        mStencilEnabled = state.enabled;
         // There are two main cases:
         // 1. The active render encoder is valid and will be subsequently used for drawing.
         //      We need to set the stencil reference value on this encoder. We do this below.
@@ -1275,10 +1186,10 @@ namespace Ogre
 
         if (mStencilEnabled)
         {
-            mStencilRefValue = refValue;
+            mStencilRefValue = state.referenceValue;
 
             if( mActiveRenderEncoder )
-                [mActiveRenderEncoder setStencilReferenceValue:refValue];
+                [mActiveRenderEncoder setStencilReferenceValue:mStencilRefValue];
         }
     }
  }

@@ -43,10 +43,6 @@ namespace RTShader {
 *  @{
 */
 
-#define SGX_LIB_INTEGRATEDPSSM                      "SGXLib_IntegratedPSSM"
-#define SGX_FUNC_COMPUTE_SHADOW_COLOUR3             "SGX_ComputeShadowFactor_PSSM3"
-#define SGX_FUNC_APPLYSHADOWFACTOR_DIFFUSE          "SGX_ApplyShadowFactor_Diffuse"
-
 /** Integrated PSSM shadow receiver with 3 splits sub render state implementation.
 Derives from SubRenderState class.
 */
@@ -97,6 +93,8 @@ public:
     void setSplitPoints(const SplitPointList& newSplitPoints);
 
     void setDebug(bool enable) { mDebug = enable; }
+
+    bool setParameter(const String& name, const String& value) override;
 
     static String Type;
 
@@ -186,8 +184,11 @@ protected:
     // Derived scene colour (ambient term).
     UniformParameterPtr mPSDerivedSceneColour;
 
+    float mPCFxSamples;
     bool mUseTextureCompare;
+    bool mUseColourShadows;
     bool mDebug;
+    bool mIsD3D9;
 };
 
 

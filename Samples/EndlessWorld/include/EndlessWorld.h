@@ -56,7 +56,6 @@ public:
 		, mTerrainPagedWorldSection(0)
 		, mPerlinNoiseTerrainGenerator(0)
         , mLodStatus(false)
-		, mAutoLod(true)
 		, mFly(true)
 		, mFallVelocity(0)
         , mTerrainPos(0,0,0)
@@ -71,16 +70,6 @@ public:
 		mInfo["Help"] = "Left click and drag anywhere in the scene to look around. Let go again to show "
 			"cursor and access widgets. Use WASD keys to move. You can increase/decrease terrains' LOD level using Page Up/Page Down."
 			"Use C to generate another random terrain";
-	}
-    
-	StringVector getRequiredPlugins()
-	{
-		StringVector names;
-		if(!GpuProgramManager::getSingleton().isSyntaxSupported("glsles")
-		&& !GpuProgramManager::getSingleton().isSyntaxSupported("glsl")
-		&& !GpuProgramManager::getSingleton().isSyntaxSupported("hlsl"))
-            names.push_back("Cg Program Manager");
-		return names;
 	}
 
     bool frameRenderingQueued(const FrameEvent& evt)
@@ -120,10 +109,9 @@ public:
 			}
 			mLodStatusLabelList.clear();
 
-			TerrainGroup::TerrainIterator ti = mTerrainGroup->getTerrainIterator();
-			while(ti.hasMoreElements())
+			for (const auto& ti : mTerrainGroup->getTerrainSlots())
 			{
-				Terrain* t = ti.getNext()->instance;
+				Terrain* t = ti.second->instance;
 				if (!t)
 					continue;
 
@@ -161,11 +149,9 @@ public:
 		case SDLK_PAGEUP:
 			{
 				mAutoBox->setChecked(false);
-				TerrainGroup::TerrainIterator ti = mTerrainGroup->getTerrainIterator();
-				while(ti.hasMoreElements())
+				for (const auto& ti : mTerrainGroup->getTerrainSlots())
 				{
-					Terrain* t = ti.getNext()->instance;
-					if (t)
+					if(Terrain* t = ti.second->instance)
 						t->increaseLodLevel();
 				}
 			}
@@ -173,11 +159,9 @@ public:
 		case SDLK_PAGEDOWN:
 			{
 				mAutoBox->setChecked(false);
-				TerrainGroup::TerrainIterator ti = mTerrainGroup->getTerrainIterator();
-				while(ti.hasMoreElements())
+				for (const auto& ti : mTerrainGroup->getTerrainSlots())
 				{
-					Terrain* t = ti.getNext()->instance;
-					if (t)
+					if(Terrain* t = ti.second->instance)
 						t->decreaseLodLevel();
 				}
 			}
@@ -190,13 +174,10 @@ public:
 				mPerlinNoiseTerrainGenerator->randomize();
 
 				// reload all terrains
-				TerrainGroup::TerrainIterator ti = mTerrainGroup->getTerrainIterator();
-				while(ti.hasMoreElements())
+				for (const auto& ti : mTerrainGroup->getTerrainSlots())
 				{
-					TerrainGroup::TerrainSlot* slot = ti.getNext();
-					PageID pageID = mTerrainGroup->packIndex( slot->x, slot->y );
-					mTerrainPagedWorldSection->unloadPage(pageID);
-					mTerrainPagedWorldSection->loadPage(pageID);
+					mTerrainPagedWorldSection->unloadPage(ti.first);
+					mTerrainPagedWorldSection->loadPage(ti.first);
 				}
 			}
 			break;
@@ -231,16 +212,8 @@ public:
 		{
 			if(mTerrainGroup)
 			{
-				if(!mAutoLod && mAutoBox->isChecked())
-				{
-					mTerrainGroup->setAutoUpdateLod( TerrainAutoUpdateLodFactory::getAutoUpdateLod(BY_DISTANCE) );
-					mAutoLod = true;
-				}
-				else if(mAutoLod && !mAutoBox->isChecked())
-				{
-					mTerrainGroup->setAutoUpdateLod( TerrainAutoUpdateLodFactory::getAutoUpdateLod(BY_DISTANCE) );
-					mAutoLod = false;
-				}
+				auto strategy = mAutoBox->isChecked() ? BY_DISTANCE : NONE;
+				mTerrainGroup->setAutoUpdateLod(TerrainAutoUpdateLodFactory::getAutoUpdateLod(strategy));
 			}
 		}
 	}
@@ -255,7 +228,6 @@ protected:
 	TerrainPagedWorldSection* mTerrainPagedWorldSection;
 	PerlinNoiseTerrainGenerator* mPerlinNoiseTerrainGenerator;
 	bool mLodStatus;
-	bool mAutoLod;
 
 	/// This class just pretends to provide procedural page content to avoid page loading
 	class DummyPageProvider : public PageProvider
@@ -375,7 +347,6 @@ protected:
 	{
 		mTerrainGlobals = OGRE_NEW TerrainGlobalOptions();
 
-		setupControls();
 		mCameraMan->setTopSpeed(100);
 
 		setDragLook(true);
@@ -439,6 +410,8 @@ protected:
 
 		mLodInfoOverlay->add2D(mLodInfoOverlayContainer);
 		mLodInfoOverlay->show();
+
+		setupControls();
 	}
 
 	void _shutdown()

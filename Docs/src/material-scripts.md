@@ -127,9 +127,7 @@ This attribute associates a texture alias with a texture name.
 @par
 Format: set\_texture\_alias &lt;alias name&gt; &lt;texture name&gt;
 
-This attribute can be used to set the textures used in texture unit states that were inherited from another material.(See @ref Texture-Aliases)
-
-
+@deprecated texture aliases are a restricted version of @ref Script-Variables, which you should instead.
 
 # Techniques {#Techniques}
 
@@ -954,7 +952,6 @@ Here are the attributes you can use in a @c texture_unit section of a .material 
 -   [scale](#scale)
 -   [wave\_xform](#wave_005fxform)
 -   [transform](#transform)
--   [binding\_type](#binding_005ftype)
 -   [content\_type](#content_005ftype)
 -   [sampler_ref](#sampler_ref)
 
@@ -964,7 +961,7 @@ If several texture units share the same Sampler settings, you are encouraged to 
 
 You can also use nested section in order to use a special add-ins
 - @c texture_source as a source of texture data, see @ref External-Texture-Sources for details
-- @c rtshader_system for addtitional layer blending  options, see @ref rtss for details.
+- @c rtshader_system for additional layer blending  options, see @ref rtss for details.
 
 <a name="Attribute-Descriptions-1"></a>
 
@@ -980,7 +977,7 @@ Format: texture\_alias &lt;name&gt;
 @par
 Example: texture\_alias NormalMap
 
-Setting the texture alias name is useful if this material is to be inherited by other other materials and only the textures will be changed in the new material.(See @ref Texture-Aliases) Default: If a texture\_unit has a name then the texture\_alias defaults to the texture\_unit name.
+@deprecated texture aliases are a restricted version of @ref Script-Variables, which you should instead.
 
 <a name="texture"></a><a name="texture-1"></a>
 
@@ -1062,7 +1059,7 @@ The base\_name in this format is something like ’skybox.jpg’, and the system
 @par
 Format2 (long): cubic\_texture &lt;front&gt; &lt;back&gt; &lt;left&gt; &lt;right&gt; &lt;up&gt; &lt;down&gt; &lt;combinedUVW|separateUV&gt;
 
-In this case each face is specified explicitly, incase you don’t want to conform to the image naming standards above. You can only use this for the separateUV version since the combinedUVW version requires a single texture name to be assigned to the combined 3D texture (see below).
+In this case each face is specified explicitly, in case you don’t want to conform to the image naming standards above. You can only use this for the separateUV version since the combinedUVW version requires a single texture name to be assigned to the combined 3D texture (see below).
 
 In both cases the final parameter means the following:
 
@@ -1079,18 +1076,6 @@ The 6 textures are combined into a single ’cubic’ texture map which is then 
 
 </dd>
 </dl> <br>
-
-<a name="binding_005ftype"></a><a name="binding_005ftype-1"></a>
-
-## binding\_type
-
-@copydetails Ogre::TextureUnitState::setBindingType
-
-@see @ref Vertex-Texture-Fetch
-
-Format: binding\_type &lt;vertex|fragment&gt;
-@par
-Default: binding\_type fragment
 
 <a name="content_005ftype"></a>
 
@@ -1536,170 +1521,3 @@ material BumpMap2 : BumpMap1
   }
 }
 ```
-
-# Texture Aliases {#Texture-Aliases}
-
-@deprecated texture aliases are a restricted version of @ref Script-Variables, which you should instead.
-
-Texture aliases are useful for when only the textures used in texture units need to be specified for a cloned material. In the source material i.e. the original material to be cloned, each texture unit can be given a texture alias name. The cloned material in the script can then specify what textures should be used for each texture alias.
-
-Using texture aliases within texture units:
-@par
-Format: texture\_alias &lt;name&gt;
-@par
-Default: &lt;name&gt; will default to texture\_unit &lt;name&gt; if set
-
-```cpp
-texture_unit DiffuseTex
-{
-  texture diffuse.jpg
-}
-```
-
-texture\_alias defaults to DiffuseTex.<br>
-
-Example: The base material to be cloned:<br>
-
-```cpp
-material TSNormalSpecMapping
-{
-  technique GLSL
-  {
-    pass 
-    {
-      ambient 0.1 0.1 0.1
-      diffuse 0.7 0.7 0.7
-      specular 0.7 0.7 0.7 128
-        
-      vertex_program_ref GLSLDemo/OffsetMappingVS
-      {
-        param_named_auto lightPosition light_position_object_space 0
-        param_named_auto eyePosition camera_position_object_space
-        param_named textureScale float 1.0
-      }
-
-      fragment_program_ref GLSLDemo/TSNormalSpecMappingFS 
-      {
-        param_named normalMap int 0
-        param_named diffuseMap int 1
-        param_named fxMap int 2
-      }
-
-      // Normal map
-      texture_unit NormalMap
-      {
-        texture defaultNM.png
-        tex_coord_set 0
-        filtering trilinear
-      }
-
-      // Base diffuse texture map
-      texture_unit DiffuseMap
-      {
-        texture defaultDiff.png
-        filtering trilinear
-        tex_coord_set 1
-      }
-
-      // spec map for shininess
-      texture_unit SpecMap
-      {
-        texture defaultSpec.png
-        filtering trilinear
-        tex_coord_set 2
-      }
-
-    }
-  }
-
-  technique HLSL_DX9
-  {
-    pass 
-    {
-            
-      vertex_program_ref FxMap_HLSL_VS
-      {
-        param_named_auto worldViewProj_matrix worldviewproj_matrix 
-        param_named_auto lightPosition light_position_object_space 0
-        param_named_auto eyePosition camera_position_object_space
-      }
-
-      fragment_program_ref FxMap_HLSL_PS 
-      {
-        param_named ambientColor float4 0.2 0.2 0.2 0.2
-      }
-
-      // Normal map
-      texture_unit 
-      {
-        texture_alias NormalMap
-        texture defaultNM.png
-        tex_coord_set 0
-        filtering trilinear
-      }
-
-      // Base diffuse texture map
-      texture_unit 
-      {
-        texture_alias DiffuseMap
-        texture defaultDiff.png
-        filtering trilinear
-        tex_coord_set 1
-      }
-
-      // spec map for shininess
-      texture_unit
-      {
-        texture_alias SpecMap
-        texture defaultSpec.png
-        filtering trilinear
-        tex_coord_set 2
-      }
-
-    }
-  }
-}
-```
-
-Note that the GLSL and HLSL techniques use the same textures. For each texture usage type a texture alias is given that describes what the texture is used for. So the first texture unit in the GLSL technique has the same alias as the TUS in the HLSL technique since its the same texture used. Same goes for the second and third texture units.<br> For demonstration purposes, the GLSL technique makes use of texture\_unit naming and therefore the texture\_alias name does not have to be set since it defaults to the texture unit name. So why not use the default all the time since its less typing? For most situations you can. Its when you clone a material that and then want to change the alias that you must use the texture\_alias command in the script. You cannot change the name of a texture\_unit in a cloned material so texture\_alias provides a facility to assign an alias name.
-
-Now we want to clone the material but only want to change the textures used. We could copy and paste the whole material but if we decide to change the base material later then we also have to update the copied material in the script. With set\_texture\_alias, copying a material is very easy now. set\_texture\_alias is specified at the top of the material definition. All techniques using the specified texture alias will be effected by set\_texture\_alias.
-
-@par
-Format: set\_texture\_alias &lt;alias name&gt; &lt;texture name&gt;<br>
-
-```cpp
-material fxTest : TSNormalSpecMapping
-{
-  set_texture_alias NormalMap fxTestNMap.png
-  set_texture_alias DiffuseMap fxTestDiff.png
-  set_texture_alias SpecMap fxTestMap.png
-}
-```
-
-The textures in both techniques in the child material will automatically get replaced with the new ones we want to use.
-
-The same process can be done in code as long you set up the texture alias names so then there is no need to traverse technique/pass/TUS to change a texture. You just call @ref Ogre::Material::applyTextureAliases which will update all textures in all texture units that match the alias names in the map container reference you passed as a parameter.
-
-You don’t have to supply all the textures in the copied material.<br>
-
-```cpp
-material fxTest2 : fxTest
-{
-  set_texture_alias DiffuseMap fxTest2Diff.png
-  set_texture_alias SpecMap fxTest2Map.png
-}
-```
-
-Material fxTest2 only changes the diffuse and spec maps of material fxTest and uses the same normal map.
-
-Another example:
-
-```cpp
-material fxTest3 : TSNormalSpecMapping
-{
-  set_texture_alias DiffuseMap fxTest2Diff.png
-}
-```
-
-fxTest3 will end up with the default textures for the normal map and spec map setup in TSNormalSpecMapping material but will have a different diffuse map. So your base material can define the default textures to use and then the child materials can override specific textures.

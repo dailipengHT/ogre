@@ -138,7 +138,7 @@ namespace Ogre {
     { 
     }
     //---------------------------------------------------------------------
-    Codec::DecodeResult PVRTCCodec::decode(const DataStreamPtr& stream) const
+    ImageCodec::DecodeResult PVRTCCodec::decode(const DataStreamPtr& stream) const
     {
         // Assume its a pvr 2 header
         PVRTCTexHeaderV2 headerV2;
@@ -165,7 +165,7 @@ namespace Ogre {
                         "This is not a PVR2 / PVR3 file!", "PVRTCCodec::decode");
     }
     //---------------------------------------------------------------------    
-    Codec::DecodeResult PVRTCCodec::decodeV2(const DataStreamPtr& stream) const
+    ImageCodec::DecodeResult PVRTCCodec::decodeV2(const DataStreamPtr& stream) const
     {
         PVRTCTexHeaderV2 header;
         uint32 flags = 0, formatFlags = 0;
@@ -214,7 +214,6 @@ namespace Ogre {
         // Now deal with the data
         void *destPtr = output->getPtr();
         stream->read(destPtr, imgData->size);
-        destPtr = static_cast<void*>(static_cast<uchar*>(destPtr));
 
         DecodeResult ret;
         ret.first = output;
@@ -223,7 +222,7 @@ namespace Ogre {
         return ret;
     }
     //---------------------------------------------------------------------    
-    Codec::DecodeResult PVRTCCodec::decodeV3(const DataStreamPtr& stream) const
+    ImageCodec::DecodeResult PVRTCCodec::decodeV3(const DataStreamPtr& stream) const
     {
         PVRTCTexHeaderV3 header;
         PVRTCMetadata metadata;

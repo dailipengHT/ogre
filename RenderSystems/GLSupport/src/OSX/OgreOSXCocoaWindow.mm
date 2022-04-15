@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 #import "OgreGLRenderSystemCommon.h"
 #import "OgreGLNativeSupport.h"
+#import <AppKit/AppKit.h>
 #import <AppKit/NSScreen.h>
 #import <AppKit/NSOpenGLView.h>
 #import <QuartzCore/CVDisplayLink.h>
@@ -327,7 +328,6 @@ namespace Ogre {
         mName = [windowTitle cStringUsingEncoding:NSUTF8StringEncoding];
         mWidth = _getPixelFromPoint(widthPt);
         mHeight = _getPixelFromPoint(heightPt);
-        mColourDepth = colourDepth;
         mFSAA = fsaa_samples;
 
         if(!externalWindowHandle)

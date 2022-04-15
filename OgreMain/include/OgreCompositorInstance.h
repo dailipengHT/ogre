@@ -34,6 +34,8 @@ THE SOFTWARE.
 #include "OgreCompositionTechnique.h"
 #include "OgreHeaderPrefix.h"
 
+#include <bitset>
+
 namespace Ogre {
 
     /** \addtogroup Core
@@ -243,11 +245,11 @@ namespace Ogre {
         
         /** Get Compositor of which this is an instance
         */
-        Compositor *getCompositor();
+        Compositor *getCompositor() const { return mCompositor; }
         
         /** Get CompositionTechnique used by this instance
         */
-        CompositionTechnique *getTechnique();
+        CompositionTechnique *getTechnique() const { return mTechnique; }
 
         /** Change the technique we're using to render this compositor. 
         @param tech
@@ -311,7 +313,7 @@ namespace Ogre {
         */
         void _fireNotifyResourcesCreated(bool forResizeOnly);
         
-        /** Notify listeners ressources
+        /** Notify listeners resources
         */
         void _fireNotifyResourcesReleased(bool forResizeOnly);
     private:

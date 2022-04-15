@@ -57,7 +57,7 @@ THE SOFTWARE.
 #define SAFE_RELEASE(p)      { if(p) { (p)->Release(); (p)=NULL; } }
 
 #if defined(_WIN32_WINNT_WIN8) // Win8 SDK required to compile, will work on Windows 8 and Platform Update for Windows 7
-#define OGRE_D3D11_PROFILING OGRE_PROFILING
+#define OGRE_D3D11_PROFILING 1
 #endif
 
 #undef NOMINMAX
@@ -75,6 +75,7 @@ THE SOFTWARE.
 #   include <d3dcompiler.h>
 #endif
  
+ #include <sstream>
 
 namespace Ogre
 {
@@ -145,16 +146,13 @@ namespace Ogre
         int hresult;
     public:
         D3D11RenderingAPIException(int hr, const String& inDescription, const String& inSource, const char* inFile, long inLine)
-            : RenderingAPIException(hr, inDescription, inSource, inFile, inLine), hresult(hr) {}
+            : RenderingAPIException(hr, inDescription, inSource, inFile, inLine), hresult(hr) {
+            StringStream ss;
+            ss << fullDesc << " HRESULT=0x" << std::hex << hresult;
+            fullDesc = ss.str();
+        }
 
         int getHResult() const { return hresult; }
-
-        const String& getFullDescription(void) const {
-            StringStream ss;
-            ss << RenderingAPIException::getFullDescription() << " HRESULT=0x" << std::hex << hresult;
-            fullDesc = ss.str();
-            return fullDesc;
-        }
     };
 }
 #endif

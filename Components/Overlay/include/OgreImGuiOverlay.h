@@ -24,7 +24,6 @@ public:
     ImFont* addFont(const String& name, const String& group OGRE_RESOURCE_GROUP_INIT);
 
     static void NewFrame();
-    OGRE_DEPRECATED static void NewFrame(const FrameEvent& evt) { NewFrame(); }
 
     void _findVisibleObjects(Camera* cam, RenderQueue* queue, Viewport* vp);
 
@@ -42,7 +41,7 @@ private:
 
         void initialise();
 
-        void updateVertexData(const ImVector<ImDrawVert>& vtxBuf, const ImVector<ImDrawIdx>& idxBuf);
+        void updateVertexData(ImDrawData* draw_data);
 
         bool preRender(SceneManager* sm, RenderSystem* rsys);
 

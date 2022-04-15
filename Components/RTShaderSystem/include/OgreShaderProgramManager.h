@@ -87,7 +87,7 @@ public:
     */
     void flushGpuProgramsCache();
 
-protected:
+private:
 
     //-----------------------------------------------------------------------------
     typedef std::map<String, GpuProgramPtr>            GpuProgramsMap;
@@ -107,22 +107,12 @@ protected:
     typedef ProgramProcessorMap::const_iterator         ProgramProcessorConstIterator;
     typedef std::vector<ProgramProcessor*>             ProgramProcessorList;
 
-    
-protected:
+
     /** Create default program processors. */
     void createDefaultProgramProcessors();
     
     /** Destroy default program processors. */
     void destroyDefaultProgramProcessors();
-
-    /** Create default program processors. */
-    void createDefaultProgramWriterFactories();
-
-    /** Destroy default program processors. */
-    void destroyDefaultProgramWriterFactories();
-
-    /** Destroy all program writers. */
-    void destroyProgramWriters();
 
     /** Create CPU program .    
     @param type The type of the program to create.
@@ -165,13 +155,13 @@ protected:
     Add program processor instance to this manager.
     @param processor The instance to add.
     */
-    void addProgramProcessor(ProgramProcessor* processor);
+    void addProgramProcessor(const String& lang, ProgramProcessor* processor);
 
     /** 
     Remove program processor instance from this manager. 
     @param processor The instance to remove.
     */
-    void removeProgramProcessor(ProgramProcessor* processor);
+    void removeProgramProcessor(const String& lang);
 
     /** Destroy a GPU program by name.
     @param gpuProgram The program to destroy.
@@ -189,9 +179,6 @@ protected:
     /** Fix the input of the pixel shader to be the same as the output of the vertex shader */
     void synchronizePixelnToBeVertexOut(ProgramSet* programSet);
 
-protected:
-    // Map between target language and shader program writer.                   
-    ProgramWriterMap mProgramWritersMap;
     // Map between target language and shader program processor.    
     ProgramProcessorMap mProgramProcessorsMap;
     // Holds standard shader writer factories
@@ -203,7 +190,6 @@ protected:
     // The default program processors.
     ProgramProcessorList mDefaultProgramProcessors;
 
-private:
     friend class ProgramSet;
     friend class TargetRenderState;
     friend class ShaderGenerator;

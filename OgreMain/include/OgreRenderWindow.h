@@ -73,7 +73,7 @@ namespace Ogre
             ~ 100 points per inch (probably 96 on Windows and 72 on Mac), that is independent
             of pixel density of real display, and are used through the all windowing system.
 
-            Sometimes, such view points are choosen bigger for output devices that are viewed
+            Sometimes, such view points are chosen bigger for output devices that are viewed
             from larger distances, like 30" TV comparing to 30" monitor, therefore maintaining
             constant points angular density rather than constant linear density.
 
@@ -107,8 +107,9 @@ namespace Ogre
                 bool fullScreen, const NameValuePairList *miscParams) = 0;
 
         /** Alter fullscreen mode options. 
-        @note Nothing will happen unless the settings here are different from the
+        Nothing will happen unless the settings here are different from the
             current settings.
+        @note Only implemented by few RenderSystems. Prefer native windowing API.
         @param fullScreen Whether to use fullscreen mode or not. 
         @param widthPt The new width to use
         @param heightPt The new height to use
@@ -130,8 +131,10 @@ namespace Ogre
         virtual void windowMovedOrResized() {}
 
         /** Reposition the window.
+
+        @note Only implemented by few RenderSystems. Prefer native windowing API.
         */
-        virtual void reposition(int leftPt, int topPt) = 0;
+        virtual void reposition(int leftPt, int topPt) {}
 
         /** Indicates whether the window is visible (not minimized or obscured)
         */
@@ -183,7 +186,7 @@ namespace Ogre
 
         /** Indicates whether the window has been closed by the user.
         */
-        virtual bool isClosed(void) const = 0;
+        virtual bool isClosed(void) const { return mClosed; }
         
         /** Indicates whether the window is the primary window. The
             primary window is special in that it is destroyed when 
@@ -200,11 +203,7 @@ namespace Ogre
         /** Overloaded version of getMetrics from RenderTarget, including extra details
             specific to windowing systems. Result is in pixels.
         */
-        virtual void getMetrics(unsigned int& width, unsigned int& height, unsigned int& colourDepth, 
-            int& left, int& top) const;
-
-        /// @copydoc RenderTarget::getMetrics
-        using RenderTarget::getMetrics;
+        void getMetrics(unsigned int& width, unsigned int& height, int& left, int& top) const;
 
         /// Override since windows don't usually have alpha
         PixelFormat suggestPixelFormat() const { return PF_BYTE_RGB; }
@@ -228,6 +227,7 @@ namespace Ogre
         bool mIsFullScreen;
         bool mIsPrimary;
         bool mAutoDeactivatedOnFocusChange;
+        bool mClosed;
         int mLeft;
         int mTop;
         unsigned int mVSyncInterval;

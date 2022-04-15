@@ -31,11 +31,12 @@ THE SOFTWARE.
 #include "OgrePrerequisites.h"
 
 #include "OgreMatrix4.h"
-#include "OgreRenderable.h"
 #include "OgreUserObjectBindings.h"
 #include "OgreHeaderPrefix.h"
 
 namespace Ogre {
+    template <typename T> class VectorIterator;
+    template <typename T> class ConstVectorIterator;
 
     /** \addtogroup Core
     *  @{
@@ -92,26 +93,6 @@ namespace Ogre {
             virtual void nodeAttached(const Node*) {}
             /** Node has been detached from a parent */
             virtual void nodeDetached(const Node*) {}
-        };
-
-        /** Inner class for displaying debug renderable for Node. */
-        class _OgreExport DebugRenderable : public Renderable, public NodeAlloc
-        {
-        protected:
-            Node* mParent;
-            MeshPtr mMeshPtr;
-            MaterialPtr mMat;
-            Real mScaling;
-        public:
-            DebugRenderable(Node* parent);
-            ~DebugRenderable();
-            const MaterialPtr& getMaterial(void) const;
-            void getRenderOperation(RenderOperation& op);
-            void getWorldTransforms(Matrix4* xform) const;
-            Real getSquaredViewDepth(const Camera* cam) const;
-            const LightList& getLights(void) const;
-            void setScaling(Real s) { mScaling = s; }
-
         };
 
     protected:
@@ -195,7 +176,7 @@ namespace Ogre {
             general sequence of updateFromParent (e.g. raising events)
         */
         virtual void updateFromParentImpl(void) const;
-    protected: // private in 1.13
+    private:
         /// The position to use as a base for keyframe animation
         Vector3 mInitialPosition;
         /// The orientation to use as a base for keyframe animation
@@ -205,8 +186,6 @@ namespace Ogre {
 
         /** Node listener - only one allowed (no list) for size & performance reasons. */
         Listener* mListener;
-
-        std::unique_ptr<DebugRenderable> mDebug;
 
         /// User objects binding.
         UserObjectBindings mUserObjectBindings;
@@ -442,7 +421,7 @@ namespace Ogre {
             rotate(Quaternion(angle, axis), relativeTo);
         }
 
-        /** Rotate the node around an aritrary axis using a Quarternion.
+        /** Rotate the node around an arbitrary axis using a Quarternion.
         */
         void rotate(const Quaternion& q, TransformSpace relativeTo = TS_LOCAL);
 
@@ -655,9 +634,6 @@ namespace Ogre {
         /** Called by children to notify their parent that they no longer need an update. */
         void cancelUpdate(Node* child);
 
-        /// @deprecated use DefaultDebugDrawer::drawAxes
-        OGRE_DEPRECATED DebugRenderable* getDebugRenderable(Real scaling);
-
         /** Queue a 'needUpdate' call to a node safely.
         @remarks
             You can't call needUpdate() during the scene graph update, e.g. in
@@ -671,29 +647,17 @@ namespace Ogre {
 
 
         /** @deprecated use UserObjectBindings::setUserAny via getUserObjectBindings() instead.
-            Sets any kind of user value on this object.
-        @remarks
-            This method allows you to associate any user value you like with 
-            this Node. This can be a pointer back to one of your own
-            classes for instance.
         */
         OGRE_DEPRECATED void setUserAny(const Any& anything) { getUserObjectBindings().setUserAny(anything); }
 
         /** @deprecated use UserObjectBindings::getUserAny via getUserObjectBindings() instead.
-            Retrieves the custom user value associated with this object.
         */
         OGRE_DEPRECATED const Any& getUserAny(void) const { return getUserObjectBindings().getUserAny(); }
 
-        /** Return an instance of user objects binding associated with this class.
-            You can use it to associate one or more custom objects with this class instance.
-        @see UserObjectBindings::setUserAny.
-        */
+        /// @copydoc UserObjectBindings
         UserObjectBindings& getUserObjectBindings() { return mUserObjectBindings; }
 
-        /** Return an instance of user objects binding associated with this class.
-            You can use it to associate one or more custom objects with this class instance.
-        @see UserObjectBindings::setUserAny.
-        */
+        /// @overload
         const UserObjectBindings& getUserObjectBindings() const { return mUserObjectBindings; }
 
     };

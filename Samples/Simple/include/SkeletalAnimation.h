@@ -153,12 +153,12 @@ protected:
 
 #if defined(INCLUDE_RTSHADER_SYSTEM) && defined(RTSHADER_SYSTEM_BUILD_EXT_SHADERS)
         // Make this viewport work with shader generator scheme.
-        mShaderGenerator->invalidateScheme(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-        mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        mShaderGenerator->invalidateScheme(MSN_SHADERGEN);
+        mViewport->setMaterialScheme(MSN_SHADERGEN);
 
         //Add the hardware skinning to the shader generator default render state
         mSrsHardwareSkinning = mShaderGenerator->createSubRenderState<RTShader::HardwareSkinning>();
-        Ogre::RTShader::RenderState* renderState = mShaderGenerator->getRenderState(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        Ogre::RTShader::RenderState* renderState = mShaderGenerator->getRenderState(MSN_SHADERGEN);
         renderState->addTemplateSubRenderState(mSrsHardwareSkinning);
 
         Ogre::MaterialPtr pCast1 = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_dq_skinning_1weight");
@@ -188,19 +188,17 @@ protected:
 
 
         // add a blue spotlight
-        Light* l = mSceneMgr->createLight();
+        Light* l = mSceneMgr->createLight(Light::LT_SPOTLIGHT);
         Vector3 pos(-40, 180, -10);
         SceneNode* ln = mSceneMgr->getRootSceneNode()->createChildSceneNode(pos);
         ln->attachObject(l);
-        l->setType(Light::LT_SPOTLIGHT);
         ln->setDirection(-pos);
         l->setDiffuseColour(0.0, 0.0, 0.5);
         bbs->createBillboard(pos)->setColour(l->getDiffuseColour());
         
 
         // add a green spotlight.
-        l = mSceneMgr->createLight();
-        l->setType(Light::LT_SPOTLIGHT);
+        l = mSceneMgr->createLight(Light::LT_SPOTLIGHT);
         pos = Vector3(0, 150, -100);
         ln = mSceneMgr->getRootSceneNode()->createChildSceneNode(pos);
         ln->attachObject(l);
@@ -279,6 +277,9 @@ protected:
         String value = "Software";
         enableBoneBoundingBoxMode( false );  // update status panel entry
 
+        // make sure we query the correct scheme
+        MaterialManager::getSingleton().setActiveScheme(mViewport->getMaterialScheme());
+
         // change the value if hardware skinning is enabled
         MaterialPtr entityMaterial = ent->getSubEntity(0)->getMaterial();
         if(entityMaterial)
@@ -351,7 +352,7 @@ protected:
         mSceneMgr->destroyEntity("Jaiqua");
 
 #if defined(INCLUDE_RTSHADER_SYSTEM) && defined(RTSHADER_SYSTEM_BUILD_EXT_SHADERS)
-        Ogre::RTShader::RenderState* renderState = mShaderGenerator->getRenderState(Ogre::RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+        Ogre::RTShader::RenderState* renderState = mShaderGenerator->getRenderState(MSN_SHADERGEN);
         renderState->removeSubRenderState(mSrsHardwareSkinning);
 #endif
     }

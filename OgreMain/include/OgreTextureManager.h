@@ -70,13 +70,17 @@ namespace Ogre {
         /// retrieve an named sampler
         const SamplerPtr& getSampler(const String& name) const;
 
+        /// clear the list of named samplers
+        /// @copydetails removeAll()
+        void removeAllNamedSamplers() { mNamedSamplers.clear(); }
+
         /// Create a new texture
         /// @copydetails ResourceManager::createResource
         TexturePtr create (const String& name, const String& group,
                             bool isManual = false, ManualResourceLoader* loader = 0,
                             const NameValuePairList* createParams = 0);
         /// @copydoc ResourceManager::getResourceByName
-        TexturePtr getByName(const String& name, const String& groupName OGRE_RESOURCE_GROUP_INIT);
+        TexturePtr getByName(const String& name, const String& groupName OGRE_RESOURCE_GROUP_INIT) const;
 
         using ResourceManager::createOrRetrieve;
 
@@ -355,7 +359,7 @@ namespace Ogre {
             doesn't loss visual quality.
         @par
             This method allow you queries hardware texture filtering capability to deciding
-            which verion of the shader to be used. Note it's up to you to write multi-version
+            which version of the shader to be used. Note it's up to you to write multi-version
             shaders for support various hardware, internal engine can't do that for you
             automatically.
         @note
@@ -442,15 +446,16 @@ namespace Ogre {
             void freeInternalResourcesImpl() override {}
             void loadImpl() override {}
         };
-    public:
-        bool isHardwareFilteringSupported(TextureType, PixelFormat, int, bool) override { return false; }
-        PixelFormat getNativeFormat(TextureType, PixelFormat, int) override { return PF_UNKNOWN; }
 
         Resource* createImpl(const String& name, ResourceHandle handle, const String& group, bool,
                              ManualResourceLoader*, const NameValuePairList*) override
         {
             return new NullTexture(this, name, handle, group);
         }
+
+    public:
+        bool isHardwareFilteringSupported(TextureType, PixelFormat, int, bool) override { return false; }
+        PixelFormat getNativeFormat(TextureType, PixelFormat, int) override { return PF_UNKNOWN; }
     };
     /** @} */
     /** @} */

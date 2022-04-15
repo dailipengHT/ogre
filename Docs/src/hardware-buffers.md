@@ -1,6 +1,6 @@
 # Hardware Buffers {#Hardware-Buffers}
 
-Vertex buffers, index buffers and pixel buffers inherit most of their features from the HardwareBuffer class. The general premise with a hardware buffer is that it is an area of memory with which you can do whatever you like; there is no format (vertex or otherwise) associated with the buffer itself - that is entirely up to interpretation by the methods that use it - in that way, a HardwareBuffer is just like an area of memory you might allocate using @c malloc - the difference being that this memory is likely to be located in GPU memory.
+The general premise with a hardware buffer is that it is an area of memory with which you can do whatever you like; there is no format (vertex or otherwise) associated with the buffer itself - that is entirely up to interpretation by the methods that use it - in that way, a Ogre::HardwareBuffer is just like an area of memory you might allocate using @c malloc - the difference being that this memory is accessible by the GPU driver. Vertex buffers, index buffers and pixel buffers inherit most of their features from the HardwareBuffer class.
 
 @tableofcontents
 
@@ -25,7 +25,7 @@ Don’t worry about the details of the above, we’ll cover that in the later se
 
 # Buffer Usage {#Buffer-Usage}
 
-Because the memory in a hardware buffer is likely to be under significant contention during the rendering of a scene, the kind of access you need to the buffer over the time it is used is extremely important; whether you need to update the contents of the buffer regularly, whether you need to be able to read information back from it, these are all important factors to how the graphics card manages the buffer. The method and exact parameters used to create a buffer depends on whether you are creating an index or vertex buffer (See @ref Hardware-Vertex-Buffers and @ref Hardware-Index-Buffers), however one creation parameter is common to them both - the ’usage’.  The most optimal type of hardware buffer is one which is not updated often, and is never read from. The usage parameter of createVertexBuffer or createIndexBuffer can be one of Ogre::HardwareBufferUsage.
+Because the memory in a hardware buffer is likely to be under significant contention during the rendering of a scene, the kind of access you need to the buffer over the time it is used is extremely important; whether you need to update the contents of the buffer regularly, whether you need to be able to read information back from it, these are all important factors to how the graphics card manages the buffer. The method and exact parameters used to create a buffer depends on whether you are creating an [index buffer](@ref Hardware-Index-Buffers) or [vertex buffer](@ref Hardware-Vertex-Buffers), however one creation parameter is common to them both - the @c usage.  The most optimal type of hardware buffer is one which is not updated often, and is never read from. The usage parameter of @c createVertexBuffer or @c createIndexBuffer can be one of Ogre::HardwareBufferUsage.
 
 Choosing the usage of your buffers carefully is important to getting optimal performance out of your geometry. If you have a situation where you need to update a vertex buffer often, consider whether you actually need to update **all** the parts of it, or just some. If it’s the latter, consider using more than one buffer, with only the data you need to modify in the HBU_CPU_TO_GPU buffer.  Always try to use the HBU_GPU_ONLY form. This just means that you cannot read *directly* from the hardware buffer, which is good practice because reading from hardware buffers is very slow. If you really need to read data back, use a shadow buffer, described in the next section.
 
@@ -38,13 +38,31 @@ The following table shows how the descriptive usage names map to the legacy term
 | HBU_GPU_TO_CPU | HBU_STATIC  |
 | HBU_CPU_ONLY   | HBU_DYNAMIC |
 
-## Shadow Buffers {#Shadow-Buffers}
+# Shadow Buffers {#Shadow-Buffers}
 
-As discussed in the previous section, reading data back from a hardware buffer performs very badly. However, if you have a cast-iron need to read the contents of the vertex buffer, you should set the 'shadowBuffer' parameter of @c createVertexBuffer or @c createIndexBuffer to @c true. This causes the hardware buffer to be backed with a 'staging' system-memory copy, which you can read from with no more penalty than reading ordinary memory. The catch is that when you write data into this buffer, it will first update the staging copy, then it will update the hardware buffer, as separate copying process - therefore this technique has an additional overhead when writing data. Don’t use it unless you really need it.
+As discussed in the previous section, reading data back from a hardware buffer performs very badly. However, if you have a cast-iron need to read the contents of the vertex buffer, you should set the @c shadowBuffer parameter of @c createVertexBuffer or @c createIndexBuffer to @c true. This causes the hardware buffer to be backed with a 'staging' system-memory copy, which you can read from with no more penalty than reading ordinary memory. The catch is that when you write data into this buffer, it will first update the staging copy, then it will update the hardware buffer, as separate copying process - therefore this technique has an additional overhead when writing data. Don’t use it unless you really need it.
+
+# Data Transfer {#Data-Transfer}
+In order to read or update a hardware buffer, you have to notify the card about it as it can have an effect on its rendering queue. %Ogre provides two ways of doing this as described below.
+
+## writeData and readData
+
+If your data is already somewhere in system memory, you can use the simple @c writeData and @c readData methods. These can be thought of as locking the buffer (as described below) and doing a @c memcpy. Some APIs, like OpenGL, implement this more efficiently though.
+
+```cpp
+std::vector<float> vec = ...;
+Ogre::HardwareBufferPtr pBuffer = ...;
+// the last parameter means we discard all previous content on writing
+pBuffer->writeData(0, vec.size() * sizeof(float), vec.data(), true);
+```
+
+However, this approach has a noticeable overhead, if you update small portions of the buffer at different locations. Also, it obviously requires system memory to be allocated for the data.
 
 ## Locking buffers {#Locking-buffers}
 
-In order to read or update a hardware buffer, you have to ’lock’ it. This performs 2 functions - it tells the card that you want access to the buffer (which can have an effect on its rendering queue), and it returns a pointer which you can manipulate. Note that if you’ve asked to read the buffer (and remember, you really shouldn’t unless you’ve set the buffer up with a shadow buffer), the contents of the hardware buffer will have been copied into system memory somewhere in order for you to get access to it. For the same reason, when you’re finished with the buffer you must unlock it; if you locked the buffer for writing this will trigger the process of uploading the modified information to the graphics hardware. 
+Locking performs 2 functions - it tells the card that you want access to the buffer, and it returns a pointer which you can manipulate. Note that if you’ve asked to read the buffer (and remember, you really shouldn’t unless you’ve set the buffer up with a shadow buffer), the contents of the hardware buffer will have been copied into system memory somewhere in order for you to get access to it. For the same reason, when you’re finished with the buffer you must unlock it; if you locked the buffer for writing this will trigger the process of uploading the modified information to the graphics hardware.
+
+@note It is strongly recommended to use Ogre::HardwareBufferLockGuard instead of manually locking and unlocking buffers. This guarantees unlocking even in case of exception.
 
 <a name="Lock-parameters"></a>
 
@@ -53,28 +71,37 @@ In order to read or update a hardware buffer, you have to ’lock’ it. This pe
 When you lock a buffer, you call one of the following methods:
 
 ```cpp
+HardwareBufferPtr pBuffer = ...;
 // Lock the entire buffer
 pBuffer->lock(lockType);
 // Lock only part of the buffer
 pBuffer->lock(start, length, lockType);
 ```
 
-The first call locks the entire buffer, the second locks only the section from ’start’ (as a byte offset), for ’length’ bytes. This could be faster than locking the entire buffer since less is transferred, but not if you later update the rest of the buffer too, because doing it in small chunks like this means you cannot use Ogre::HardwareBuffer::HBL_DISCARD.  The lockType parameter can have a large effect on the performance of your application, especially if you are not using a shadow buffer. See Ogre::HardwareBuffer::LockOptions.
+The first call locks the entire buffer, the second locks only the section from @c start (as a byte offset), for @c length bytes. This could be faster than locking the entire buffer since less is transferred, but not if you later update the rest of the buffer too, because doing it in small chunks like this means you cannot use Ogre::HardwareBuffer::HBL_DISCARD.  The @c lockType parameter can have a large effect on the performance of your application, especially if you are not using a shadow buffer. See Ogre::HardwareBuffer::LockOptions.
 
-Once you have locked a buffer, you can use the pointer returned however you wish (just don’t bother trying to read the data that’s there if you’ve used HBL\_DISCARD, or write the data if you’ve used HBL\_READ\_ONLY). Modifying the contents depends on the type of buffer, See [Hardware Vertex Buffers](#Hardware-Vertex-Buffers) and See [Hardware Index Buffers](#Hardware-Index-Buffers)
+Once you have locked a buffer, you can use the pointer returned however you wish (just don’t bother trying to read the data that’s there if you’ve used @c HBL_DISCARD, or write the data if you’ve used @c HBL_READ_ONLY). Modifying the contents depends on the type of buffer.
+@see @ref Updating-Vertex-Buffers
+@see @ref Updating-Index-Buffers
 
-## Practical Buffer Tips {#Practical-Buffer-Tips}
+# Practical Buffer Tips {#Practical-Buffer-Tips}
 
 The interplay of usage mode on creation, and locking options when reading / updating is important for performance. Here’s some tips:
 
-1.  Aim for the ’perfect’ buffer by creating with HBU_GPU_ONLY, with no shadow buffer, and locking all of it once only with HBL\_DISCARD to populate it. Never touch it again.
-2.  If you need to update a buffer regularly, you will have to compromise. Use HBU_CPU_TO_GPU when creating (still no shadow buffer), and use HBL\_DISCARD to lock the entire buffer, or if you can’t then use HBL\_NO\_OVERWRITE to lock parts of it.
-3.  If you really need to read data from the buffer, create it with a shadow buffer. Make sure you use HBL\_READ\_ONLY when locking for reading because it will avoid the upload normally associated with unlocking the buffer. You can also combine this with either of the 2 previous points, obviously try for HBU_GPU_ONLY if you can - remember that the usage refers to the hardware buffer so can be safely used with a shadow buffer you read from.
-4.  Split your vertex buffers up if you find that your usage patterns for different elements of the vertex are different. No point having one huge updatable buffer with all the vertex data in it, if all you need to update is the texture coordinates. Split that part out into it’s own buffer and make the rest HBU_GPU_ONLY.
+1.  Aim for the ’perfect’ buffer by creating with @c HBU_GPU_ONLY, with no shadow buffer, and locking all of it once only with @c HBL_DISCARD to populate it. Never touch it again.
+2.  If you need to update a buffer regularly, you will have to compromise. Use @c HBU_CPU_TO_GPU when creating (still no shadow buffer), and use @c HBL_DISCARD to lock the entire buffer, or if you can’t then use @c HBL_NO_OVERWRITE to lock parts of it.
+3.  If you really need to read data from the buffer, create it with a shadow buffer. Make sure you use @c HBL_READ_ONLY when locking for reading because it will avoid the upload normally associated with unlocking the buffer. You can also combine this with either of the 2 previous points, obviously try for @c HBU_GPU_ONLY if you can - remember that the usage refers to the hardware buffer so can be safely used with a shadow buffer you read from.
+4.  Split your vertex buffers up if you find that your usage patterns for different elements of the vertex are different. No point having one huge updatable buffer with all the vertex data in it, if all you need to update is the texture coordinates. Split that part out into it’s own buffer and make the rest @c HBU_GPU_ONLY.
+
+## Vulkan specific notes
+
+When it comes to Vulkan, the above tips become rules. %Ogre does not try to emulate the behaviour of older APIs and gets out of the way when you are about to shoot yourself in the foot.
+- As the GPU might not yet be done processing the data, you should always use @c HBL_DISCARD or multiple buffers to avoid rendering glitches
+- @c HBU_GPU_ONLY buffer updates must be done before rendering of the current frame starts (i.e. @c RenderSystem::_render has been called)
 
 # Hardware Vertex Buffers {#Hardware-Vertex-Buffers}
 
-This section covers specialised hardware buffers which contain vertex data. For a general discussion of hardware buffers, along with the rules for creating and locking them, see the @ref Hardware-Buffers section.
+This section covers specialised hardware buffers which contain vertex data.
 
 ## The VertexData class {#The-VertexData-class}
 
@@ -140,7 +167,7 @@ Vertex buffer bindings are about associating a vertex buffer with a source index
 Firstly, lets look at how you create a vertex buffer:
 
 ```cpp
-HardwareVertexBufferSharedPtr vbuf = 
+HardwareVertexBufferPtr vbuf =
     Ogre::HardwareBufferManager::getSingleton().createVertexBuffer(
         3*sizeof(float), // size of one whole vertex
         numVertices, // number of vertices
@@ -183,7 +210,7 @@ This results in the vertex buffer you created earlier being bound to source inde
 
 ## Updating Vertex Buffers {#Updating-Vertex-Buffers}
 
-The complexity of updating a vertex buffer entirely depends on how its contents are laid out. You can lock a buffer (See [Locking buffers](#Locking-buffers)), but how you write data into it vert much depends on what it contains. Lets start with a vert simple example. Lets say you have a buffer which only contains vertex positions, so it only contains sets of 3 floating point numbers per vertex. In this case, all you need to do to write data into it is:
+The complexity of updating a vertex buffer entirely depends on how its contents are laid out. You can [lock a buffer](@ref Locking-buffers), but how you write data into it vert much depends on what it contains. Lets start with a vert simple example. Lets say you have a buffer which only contains vertex positions, so it only contains sets of 3 floating point numbers per vertex. In this case, all you need to do to write data into it is:
 
 ```cpp
 auto pFloat = static_cast<float*>(vbuf->lock(HardwareBuffer::HBL_DISCARD));
@@ -221,7 +248,7 @@ See the API docs for full details of all the helper methods on VertexDeclaration
 
 # Hardware Index Buffers {#Hardware-Index-Buffers}
 
-Index buffers are used to render geometry by building triangles out of vertices indirectly by reference to their position in the buffer, rather than just building triangles by sequentially reading vertices. Index buffers are simpler than vertex buffers, since they are just a list of indexes at the end of the day, however they can be held on the hardware and shared between multiple pieces of geometry in the same way vertex buffers can, so the rules on creation and locking are the same. See [Hardware Buffers](#Hardware-Buffers) for information.
+Index buffers are used to render geometry by building triangles out of vertices indirectly by reference to their position in the buffer, rather than just building triangles by sequentially reading vertices. Index buffers are simpler than vertex buffers, since they are just a list of indexes at the end of the day, however they can be held on the hardware and shared between multiple pieces of geometry in the same way vertex buffers can, so the rules on creation and locking are the same.
 
 ## The IndexData class {#The-IndexData-class}
 
@@ -278,7 +305,7 @@ Tells the system whether you want this buffer backed by a system-memory copy. Se
 
 ## Updating Index Buffers {#Updating-Index-Buffers}
 
-Updating index buffers can only be done when you lock the buffer for writing; See [Locking buffers](#Locking-buffers) for details. Locking returns a void pointer, which must be cast to the appropriate type; with index buffers this is either an unsigned short (for 16-bit indexes) or an unsigned long (for 32-bit indexes). For example:
+Updating index buffers can only be done when you [lock the buffer](@ref Locking-buffers) for writing; Locking returns a void pointer, which must be cast to the appropriate type; with index buffers this is either an unsigned short (for 16-bit indexes) or an unsigned long (for 32-bit indexes). For example:
 
 ```cpp
 unsigned short* pIdx = static_cast<unsigned short*>(ibuf->lock(HardwareBuffer::HBL_DISCARD));
@@ -290,58 +317,25 @@ You can then write to the buffer using the usual pointer semantics, just remembe
 
 Hardware Pixel Buffers are a special kind of buffer that stores graphical data in graphics card memory, generally for use as textures. Pixel buffers can represent a one dimensional, two dimensional or three dimensional image. A texture can consist of a multiple of these buffers.
 
-In contrary to vertex and index buffers, pixel buffers are not constructed directly. When creating a texture, the necessary pixel buffers to hold its data are constructed automatically.
+In contrary to vertex and index buffers, pixel buffers are not constructed directly. When creating @ref Textures, the necessary pixel buffers to hold the data are constructed automatically.
 
-## Textures {#Textures}
+## Pixel boxes {#Pixel-boxes}
 
-A texture is an image that can be applied onto the surface of a three dimensional model. In Ogre, textures are represented by the Texture resource class.
+All methods in Ogre that take or return raw image data return a Ogre::PixelBox object.
 
-### Creating a texture {#Creating-a-texture}
+A PixelBox is a primitive describing a volume (3D), image (2D) or line (1D) of pixels in CPU memory. It describes the location and data format of a region of memory used for image data, but does not do any memory management in itself.
 
-Textures are created through the TextureManager. In most cases they are created from image files directly by the Ogre resource system. If you are reading this, you most probably want to create a texture manually so that you can provide it with image data yourself. This is done through TextureManager::createManual:
+Inside the memory pointed to by the *data* member of a pixel box, pixels are stored as a succession of "depth" slices (in Z), each containing "height" rows (Y) of "width" pixels (X).
 
-```cpp
-ptex = Ogre::TextureManager::getSingleton().createManual(
-    "MyManualTexture", // Name of texture
-    "General", // Name of resource group in which the texture should be created
-    Ogre::TEX_TYPE_2D, // Texture type
-    256, // Width
-    256, // Height
-    1, // Depth (Must be 1 for two dimensional textures)
-    0, // No mipmaps
-    PF_A8R8G8B8, // internal Pixel format
-    Ogre::HBU_CPU_TO_GPU // usage
-);
-```
-
-This example creates a texture named *MyManualTexture* in resource group *General*. It is a square *two dimensional* texture, with width 256 and height 256.
-
-The different texture types will be discussed in Ogre::TextureType. Pixel formats are summarised in @ref Pixel-Formats.
-
-In addition to the hardware buffer usages as described in Ogre::HardwareBufferUsage there are some usage flags specific to textures: Ogre::TextureUsage.
-
-## Getting a PixelBuffer {#Getting-a-PixelBuffer}
-
-A Texture can consist of multiple PixelBuffers, one for each combo if mipmap level and face number. To get a PixelBuffer from a Texture object the method Texture::getBuffer(face, mipmap) is used:
-
-*face* should be zero for non-cubemap textures. For cubemap textures it identifies the face to use, which is one of the cube faces described in See @ref Texture-Types.
-
-*mipmap* is zero for the zeroth mipmap level, one for the first mipmap level, and so on. On textures that have automatic mipmap generation (TU\_AUTOMIPMAP) only level 0 should be accessed, the rest will be taken care of by the rendering API.
-
-A simple example of using getBuffer is
-
-```cpp
-// Get the PixelBuffer for face 0, mipmap 0.
-HardwarePixelBufferSharedPtr ptr = tex->getBuffer(0,0);
-```
+Dimensions that are not used must be 1. For example, a one dimensional image will have extents (width,1,1). A two dimensional image has extents (width,height,1).
 
 ## Updating Pixel Buffers {#Updating-Pixel-Buffers}
 
 Pixel Buffers can be updated in two different ways; a simple, convenient way and a more difficult (but in some cases faster) method. Both methods make use of Ogre::PixelBox objects to represent image data in memory.
 
-## Blit from memory {#blitFromMemory}
+### Blit from memory {#blitFromMemory}
 
-The easy method to get an image into a PixelBuffer is by using HardwarePixelBuffer::blitFromMemory. This takes a PixelBox object and does all necessary pixel format conversion and scaling for you. For example, to create a manual texture and load an image into it, all you have to do is
+The easy method to get an image into a PixelBuffer is by using Ogre::HardwarePixelBuffer::blitFromMemory. This takes a PixelBox object and does all necessary pixel format conversion and scaling for you. For example, to create a manual texture and load an image into it, all you have to do is
 
 ```cpp
 // Manually loads an image and puts the contents in a manually created texture
@@ -358,7 +352,7 @@ TexturePtr tex = Ogre::TextureManager::getSingleton().createManual(
 tex->getBuffer(0,0)->blitFromMemory(img.getPixelBox(0,0));
 ```
 
-## Direct memory locking {#Direct-memory-locking}
+### Direct memory locking {#Direct-memory-locking}
 
 A more advanced method to transfer image data from and to a PixelBuffer is to use locking. By locking a PixelBuffer you can directly access its contents in whatever the internal format of the buffer inside the GPU is.
 
@@ -387,40 +381,72 @@ for(size_t y=0; y<height; ++y)
 buffer->unlock();
 ```
 
-## Texture Types {#Texture-Types}
 
-There are several types of textures supported by current hardware (see Ogre::TextureType), the first three only differ in the amount of dimensions they have (one, two or three).
+# Textures {#Textures}
+
+A texture is an image that can be applied onto the surface of a three dimensional model. In %Ogre, textures are represented by the Ogre::Texture resource class.
+
+## Creating a texture {#Creating-a-texture}
+
+Textures are created through the TextureManager. In most cases they are created from image files directly by the Ogre resource system. If you are reading this, you most probably want to create a texture manually so that you can provide it with image data yourself. This is done through Ogre::TextureManager::createManual:
+
+```cpp
+tex = Ogre::TextureManager::getSingleton().createManual(
+    "MyManualTexture", // Name of texture
+    "General", // Name of resource group in which the texture should be created
+    TEX_TYPE_2D, // Texture type
+    256, // Width
+    256, // Height
+    1, // Depth (Must be 1 for two dimensional textures)
+    0, // No mipmaps
+    PF_A8R8G8B8, // internal Pixel format hint
+    HBU_GPU_ONLY | TU_AUTOMIPMAP // usage
+);
+```
+
+This example creates a texture named *MyManualTexture* in resource group *General*. It is a square *two dimensional* texture, with width 256 and height 256.
+
+The available texture types are specified in Ogre::TextureType. Pixel formats are summarised in @ref Pixel-Formats.
+@note The format specified here is only a hint. If the hardware does not support the requested format, you will get the closest supported alternative format as returned by Ogre::TextureManager::getNativeFormat.
+
+In addition to the hardware buffer usages as described in Ogre::HardwareBufferUsage there are some usage flags specific to textures defined in Ogre::TextureUsage.
+
+## Getting a PixelBuffer {#Getting-a-PixelBuffer}
+
+A Texture can consist of multiple @ref Hardware-Pixel-Buffers, one for each combo if mipmap level and face number. To get a PixelBuffer from a Texture object the method Ogre::Texture::getBuffer is used:
+
+@c face should be zero for non-cubemap textures. For @ref Cube-map-textures it identifies which one of the cube faces to use.
+
+@c mipmap is zero for the zeroth mipmap level, one for the first mipmap level, and so on. On textures that have automatic mipmap generation (@c TU_AUTOMIPMAP) only level 0 should be accessed, the rest will be taken care of by the rendering API.
+
+A simple example of using getBuffer is
+
+```cpp
+// Get the PixelBuffer for face 0, mipmap 0.
+HardwarePixelBufferSharedPtr ptr = tex->getBuffer(0,0);
+```
 
 ## Cube map textures {#Cube-map-textures}
 
 The cube map texture type (Ogre::TEX_TYPE_CUBE_MAP) is a different beast from the others; a cube map texture represents a series of six two dimensional images addressed by 3D texture coordinates.
 
-<dl compact="compact">
-<dt>+X (face 0)</dt> <dd>
-
+@par +X (face 0)
 Represents the positive x plane (right).
 
-</dd> <dt>-X (face 1)</dt> <dd>
-
+@par -X (face 1)
 Represents the negative x plane (left).
 
-</dd> <dt>+Y (face 2)</dt> <dd>
-
+@par +Y (face 2)
 Represents the positive y plane (top).
 
-</dd> <dt>-Y (face 3)</dt> <dd>
-
+@par -Y (face 3)
 Represents the negative y plane (bottom).
 
-</dd> <dt>+Z (face 4)</dt> <dd>
-
+@par +Z (face 4)
 Represents the positive z plane (front).
 
-</dd> <dt>-Z (face 5)</dt> <dd>
-
+@par -Z (face 5)
 Represents the negative z plane (back).
-
-</dd> </dl>
 
 ## Pixel Formats {#Pixel-Formats}
 
@@ -428,119 +454,46 @@ Represents the negative z plane (back).
 
 A pixel format described the storage format of pixel data. It defines the way pixels are encoded in memory. The following classes of pixel formats (PF\_\*) are defined:
 
-<dl compact="compact">
-<dt>Native endian formats (PF\_A8R8G8B8 and other formats with bit counts)</dt> <dd>
-
+@par Native endian formats (PF\_A8R8G8B8 and other formats with bit counts)
 These are native endian (16, 24 and 32 bit) integers in memory. The meaning of the letters is described below.
 
-</dd> <dt>Byte formats (PF\_BYTE\_\*)</dt> <dd>
-
+@par Byte formats (PF\_BYTE\_\*)
 These formats have one byte per channel, and their channels in memory are organized in the order they are specified in the format name. For example, PF\_BYTE\_RGBA consists of blocks of four bytes, one for red, one for green, one for blue, one for alpha.
 
-</dd> <dt>Short formats (PF\_SHORT\_\*)</dt> <dd>
-
+@par Short formats (PF\_SHORT\_\*)
 These formats have one unsigned short (16 bit integer) per channel, and their channels in memory are organized in the order they are specified in the format name. For example, PF\_SHORT\_RGBA consists of blocks of four 16 bit integers, one for red, one for green, one for blue, one for alpha.
 
-</dd> <dt>Float16 formats (PF\_FLOAT16\_\*)</dt> <dd>
-
+@par Float16 formats (PF\_FLOAT16\_\*)
 These formats have one 16 bit floating point number per channel, and their channels in memory are organized in the order they are specified in the format name. For example, PF\_FLOAT16\_RGBA consists of blocks of four 16 bit floats, one for red, one for green, one for blue, one for alpha. The 16 bit floats, also called half float) are very similar to the IEEE single-precision floating-point standard of the 32 bits floats, except that they have only 5 exponent bits and 10 mantissa. Note that there is no standard C++ data type or CPU support to work with these efficiently, but GPUs can calculate with these much more efficiently than with 32 bit floats.
 
-</dd> <dt>Float32 formats (PF\_FLOAT32\_\*)</dt> <dd>
-
+@par Float32 formats (PF\_FLOAT32\_\*)
 These formats have one 32 bit floating point number per channel, and their channels in memory are organized in the order they are specified in the format name. For example, PF\_FLOAT32\_RGBA consists of blocks of four 32 bit floats, one for red, one for green, one for blue, one for alpha. The C++ data type for these 32 bits floats is just "float".
 
-</dd> <dt>Compressed formats (PF\_DXT\[1-5\])</dt> <dd>
-
+@par Compressed formats (PF\_DXT\[1-5\])
 S3TC compressed texture formats, [a good description can be found at Wikipedia](http://en.wikipedia.org/wiki/S3TC)
-
-</dd> </dl>
-
-## Colour channels {#Colour-channels}
-
-The meaning of the channels R,G,B,A,L and X is defined as
-
-<dl compact="compact">
-<dt>R</dt> <dd>
-
-Red colour component, usually ranging from 0.0 (no red) to 1.0 (full red).
-
-</dd> <dt>G</dt> <dd>
-
-Green colour component, usually ranging from 0.0 (no green) to 1.0 (full green).
-
-</dd> <dt>B</dt> <dd>
-
-Blue colour component, usually ranging from 0.0 (no blue) to 1.0 (full blue).
-
-</dd> <dt>A</dt> <dd>
-
-Alpha component, usually ranging from 0.0 (entire transparent) to 1.0 (opaque).
-
-</dd> <dt>L</dt> <dd>
-
-Luminance component, usually ranging from 0.0 (black) to 1.0 (white). The luminance component is duplicated in the R, G, and B channels to achieve a greyscale image.
-
-</dd> <dt>X</dt> <dd>
-
-This component is completely ignored.
-
-</dd> </dl>
-
-If none of red, green and blue components, or luminance is defined in a format, these default to 0. For the alpha channel this is different; if no alpha is defined, it defaults to 1.
-
-## List of pixel formats {#Complete-list-of-pixel-formats}
-
-This pixel formats supported by the current version of Ogre are
-
-<dl compact="compact">
-<dt>Byte formats</dt> <dd>
-
-PF\_BYTE\_RGB, PF\_BYTE\_BGR, PF\_BYTE\_BGRA, PF\_BYTE\_RGBA, PF\_BYTE\_L, PF\_BYTE\_LA, PF\_BYTE\_A
-
-</dd> <dt>Short formats</dt> <dd>
-
-PF\_SHORT\_RGBA
-
-</dd> <dt>Float16 formats</dt> <dd>
-
-PF\_FLOAT16\_R, PF\_FLOAT16\_RGB, PF\_FLOAT16\_RGBA
-
-</dd> <dt>Float32 formats</dt> <dd>
-
-PF\_FLOAT32\_R, PF\_FLOAT32\_RGB, PF\_FLOAT32\_RGBA
-
-</dd> <dt>8 bit native endian formats</dt> <dd>
-
-PF\_L8, PF\_A8, PF\_A4L4, PF\_R3G3B2
-
-</dd> <dt>16 bit native endian formats</dt> <dd>
-
-PF\_L16, PF\_R5G6B5, PF\_B5G6R5, PF\_A4R4G4B4, PF\_A1R5G5B5
-
-</dd> <dt>24 bit native endian formats</dt> <dd>
-
-PF\_R8G8B8, PF\_B8G8R8
-
-</dd> <dt>32 bit native endian formats</dt> <dd>
-
-PF\_A8R8G8B8, PF\_A8B8G8R8, PF\_B8G8R8A8, PF\_R8G8B8A8, PF\_X8R8G8B8, PF\_X8B8G8R8, PF\_A2R10G10B10 PF\_A2B10G10R10
-
-</dd> <dt>Compressed formats</dt> <dd>
-
-PF\_DXT1, PF\_DXT2, PF\_DXT3, PF\_DXT4, PF\_DXT5
-
-</dd> </dl>
 
 For a complete list see Ogre::PixelFormat.
 
-## Pixel boxes {#Pixel-boxes}
+### Colour channels {#Colour-channels}
 
-All methods in Ogre that take or return raw image data return a Ogre::PixelBox object.
+The meaning of the channels R,G,B,A,L and X is defined as
 
-A PixelBox is a primitive describing a volume (3D), image (2D) or line (1D) of pixels in CPU memory. It describes the location and data format of a region of memory used for image data, but does not do any memory management in itself.
+@par R
+Red colour component, usually ranging from 0.0 (no red) to 1.0 (full red).
 
-Inside the memory pointed to by the *data* member of a pixel box, pixels are stored as a succession of "depth" slices (in Z), each containing "height" rows (Y) of "width" pixels (X).
+@par G
+Green colour component, usually ranging from 0.0 (no green) to 1.0 (full green).
 
-Dimensions that are not used must be 1. For example, a one dimensional image will have extents (width,1,1). A two dimensional image has extents (width,height,1).
+@par B
+Blue colour component, usually ranging from 0.0 (no blue) to 1.0 (full blue).
 
-For more information about the members consult the API documentation Ogre::PixelBox.
+@par A
+Alpha component, usually ranging from 0.0 (entire transparent) to 1.0 (opaque).
+
+@par L
+Luminance component, usually ranging from 0.0 (black) to 1.0 (white). The luminance component is duplicated in the R, G, and B channels to achieve a greyscale image.
+
+@par X
+This component is completely ignored.
+
+If none of red, green and blue components, or luminance is defined in a format, these default to 0. For the alpha channel this is different; if no alpha is defined, it defaults to 1.

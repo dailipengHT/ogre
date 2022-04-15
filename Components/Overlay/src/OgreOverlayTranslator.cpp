@@ -30,6 +30,8 @@ THE SOFTWARE.
 #include "OgreOverlayManager.h"
 #include "OgreOverlayContainer.h"
 
+#include <sstream>
+
 namespace Ogre
 {
 //! [font_translate]
@@ -90,8 +92,8 @@ void FontTranslator::parseAttribute(ScriptCompiler* compiler, FontPtr& pFont,
             // Direct character
             cp = val[0];
         }
-        pFont->setGlyphTexCoords(cp, coords[0], coords[1], coords[2], coords[3],
-                                 1.0); // assume image is square
+        pFont->setGlyphInfoFromTexCoords(
+            cp, FloatRect(coords[0], coords[1], coords[2], coords[3])); // assume image is square
     }
     else if (attrib == "antialias_colour")
     {
@@ -137,8 +139,6 @@ void ElementTranslator::translate(ScriptCompiler* compiler, const AbstractNodePt
 {
     ObjectAbstractNode* obj = static_cast<ObjectAbstractNode*>(node.get());
 
-    bool isATemplate = obj->cls != "overlay" && !obj->parent; // only top level elements are templates
-
     String name;
     // legacy compat
     if ((obj->cls == "template") && !obj->values.empty())
@@ -174,8 +174,8 @@ void ElementTranslator::translate(ScriptCompiler* compiler, const AbstractNodePt
     if(!obj->bases.empty())
         templateName = obj->bases.front();
 
-    OverlayElement* newElement = OverlayManager::getSingleton().createOverlayElementFromTemplate(
-        templateName, type, name, isATemplate);
+    OverlayElement* newElement =
+        OverlayManager::getSingleton().createOverlayElementFromTemplate(templateName, type, name);
 
     if(obj->parent && obj->parent->context.has_value())
     {

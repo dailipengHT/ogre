@@ -107,8 +107,6 @@ namespace Ogre
             const Frustum *frustum;
             /// texture 
             IDirect3DBaseTexture9 *pTex;
-            /// vertex texture 
-            IDirect3DBaseTexture9 *pVertexTex;
         } mTexStageDesc[OGRE_MAX_TEXTURE_LAYERS];
 
         // Array of up to 8 lights, indexed as per API
@@ -166,7 +164,7 @@ namespace Ogre
         /// Saved last view matrix
         Matrix4 mViewMatrix;
 
-        D3DXMATRIX mDxViewMat, mDxProjMat, mDxWorldMat;
+        D3DMATRIX mDxViewMat, mDxProjMat, mDxWorldMat;
     
         typedef std::vector<D3D9RenderWindow*> D3D9RenderWindowList;
         // List of additional windows after the first (swap chains)
@@ -269,15 +267,7 @@ namespace Ogre
         void setShadingType( ShadeOptions so );
         void setLightingEnabled( bool enabled );
         void destroyRenderTarget(const String& name);
-        VertexElementType getColourVertexElementType() const;
-        void setStencilCheckEnabled(bool enabled);
-        void setStencilBufferParams(CompareFunction func = CMPF_ALWAYS_PASS, 
-            uint32 refValue = 0, uint32 compareMask = 0xFFFFFFFF, uint32 writeMask = 0xFFFFFFFF,
-            StencilOperation stencilFailOp = SOP_KEEP, 
-            StencilOperation depthFailOp = SOP_KEEP,
-            StencilOperation passOp = SOP_KEEP, 
-            bool twoSidedOperation = false,
-            bool readBackAsTexture = false);
+        void setStencilState(const StencilState& state) override;
         void setNormaliseNormals(bool normalise);
 
         // Low-level overridden members, mainly for internal use
@@ -287,8 +277,6 @@ namespace Ogre
         void _setPointParameters(bool attenuationEnabled, Real minSize, Real maxSize);
         void _setTexture(size_t unit, bool enabled, const TexturePtr& texPtr);
         void _setSampler(size_t unit, Sampler& sampler);
-        void _setVertexTexture(size_t unit, const TexturePtr& tex);
-        void _disableTextureUnit(size_t texUnit);
         void _setTextureCoordSet( size_t unit, size_t index );
         void _setTextureCoordCalculation(size_t unit, TexCoordCalcMethod m, 
             const Frustum* frustum = 0);
@@ -329,7 +317,7 @@ namespace Ogre
         void setScissorTest(bool enabled, const Rect& rect = Rect());
         void clearFrameBuffer(unsigned int buffers, 
             const ColourValue& colour = ColourValue::Black, 
-            Real depth = 1.0f, unsigned short stencil = 0);
+            float depth = 1.0f, unsigned short stencil = 0);
         void setClipPlane (ushort index, Real A, Real B, Real C, Real D);
         void enableClipPlane (ushort index, bool enable);
         HardwareOcclusionQuery* createHardwareOcclusionQuery();
@@ -394,10 +382,7 @@ namespace Ogre
         void createStereoDriver(const NameValuePairList* miscParams);
 #endif
 
-    protected:  
-        /// Returns the sampler id for a given unit texture number
-        DWORD getSamplerId(size_t unit);
-
+    protected:
         /// Notify when a device has been lost.
         void notifyOnDeviceLost(D3D9Device* device);
 

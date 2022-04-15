@@ -44,53 +44,39 @@ THE SOFTWARE.
 #include "OgreGLNativeSupport.h"
 #include "OgreGLES2HardwareBuffer.h"
 #include "OgreGLES2Texture.h"
+#include "OgreLogManager.h"
 
 namespace Ogre {
-    GLES2HardwarePixelBuffer::GLES2HardwarePixelBuffer(uint32 width, uint32 height,
-                                                     uint32 depth, PixelFormat format,
-                                                     HardwareBuffer::Usage usage)
-        : GLHardwarePixelBufferCommon(width, height, depth, format, usage)
+    void GLES2TextureBuffer::_blitFromMemory(const PixelBox &src, const Box &dst)
     {
-    }
-
-    void GLES2HardwarePixelBuffer::blitFromMemory(const PixelBox &src, const Box &dstBox)
-    {
-        if (!mBuffer.contains(dstBox))
+        if (!mBuffer.contains(src))
         {
             OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
                         "Destination box out of range",
                         "GLES2HardwarePixelBuffer::blitFromMemory");
         }
 
-        PixelBox scaled;
+        PixelBox converted;
 
-        if (src.getSize() != dstBox.getSize())
-        {
-            // Scale to destination size.
-            // This also does pixel format conversion if needed
-            allocateBuffer();
-            scaled = mBuffer.getSubVolume(dstBox);
-            Image::scale(src, scaled, Image::FILTER_BILINEAR);
-        }
-        else if (src.format != mFormat)
+        if (src.format != mFormat)
         {
             // Extents match, but format is not accepted as valid source format for GL
             // do conversion in temporary buffer
             allocateBuffer();
-            scaled = mBuffer.getSubVolume(dstBox);
-            PixelUtil::bulkPixelConversion(src, scaled);
+            converted = mBuffer.getSubVolume(src);
+            PixelUtil::bulkPixelConversion(src, converted);
         }
         else
         {
-            // No scaling or conversion needed
-            scaled = src;
+            // No conversion needed
+            converted = src;
         }
 
-        upload(scaled, dstBox);
+        upload(converted, dst);
         freeBuffer();
     }
 
-    void GLES2HardwarePixelBuffer::blitToMemory(const Box &srcBox, const PixelBox &dst)
+    void GLES2TextureBuffer::blitToMemory(const Box &srcBox, const PixelBox &dst)
     {
         if (!mBuffer.contains(srcBox))
         {
@@ -131,7 +117,7 @@ namespace Ogre {
     // TextureBuffer
     GLES2TextureBuffer::GLES2TextureBuffer(GLES2Texture* parent, GLint face, GLint level,
                                            GLint width, GLint height, GLint depth)
-        : GLES2HardwarePixelBuffer(width, height, depth, parent->getFormat(), (Usage)parent->getUsage()),
+        : GLHardwarePixelBufferCommon(width, height, depth, parent->getFormat(), (Usage)parent->getUsage()),
           mTarget(parent->getGLES2TextureTarget()), mTextureID(parent->getGLID()),
           mLevel(level)
     {
@@ -182,15 +168,6 @@ namespace Ogre {
 
     GLES2TextureBuffer::~GLES2TextureBuffer()
     {
-        if (mUsage & TU_RENDERTARGET)
-        {
-            // Delete all render targets that are not yet deleted via _clearSliceRTT because the rendertarget
-            // was deleted by the user.
-            for (SliceTRT::const_iterator it = mSliceTRT.begin(); it != mSliceTRT.end(); ++it)
-            {
-                Root::getSingleton().getRenderSystem()->destroyRenderTarget((*it)->getName());
-            }
-        }
     }
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_ANDROID || OGRE_PLATFORM == OGRE_PLATFORM_EMSCRIPTEN
@@ -245,8 +222,8 @@ namespace Ogre {
         LogManager::getSingleton().logMessage("GLES2TextureBuffer::upload - ID: " + StringConverter::toString(mTextureID) +
                                               " Target: " + StringConverter::toString(mTarget) +
                                               " Format: " + PixelUtil::getFormatName(data.format) +
-                                              " Origin format: " + StringConverter::toString(GLES2PixelUtil::getGLOriginFormat(data.format), 0, ' ', std::ios::hex) +
-                                              " Data type: " + StringConverter::toString(GLES2PixelUtil::getGLOriginDataType(data.format), 0, ' ', std::ios::hex));
+                                              " Origin format: " + StringUtil::format("%x", GLES2PixelUtil::getGLOriginFormat(data.format)) +
+                                              " Data type: " + StringUtil::format("%x", GLES2PixelUtil::getGLOriginDataType(data.format)));
 #endif
 #endif
 
@@ -429,7 +406,7 @@ namespace Ogre {
         }
         else
         {
-            GLES2HardwarePixelBuffer::blit(src, srcBox, dstBox);
+            GLHardwarePixelBufferCommon::blit(src, srcBox, dstBox);
         }
     }
     
@@ -490,7 +467,7 @@ namespace Ogre {
         if(true ||
            (src.getSize() == dstBox.getSize()))
         {
-            GLES2HardwarePixelBuffer::blitFromMemory(src, dstBox);
+            _blitFromMemory(src, dstBox);
             return;
         }
         if(!mBuffer.contains(dstBox))
@@ -515,17 +492,10 @@ namespace Ogre {
         TextureManager::getSingleton().remove(tex);
     }
     
-    RenderTexture *GLES2TextureBuffer::getRenderTarget(size_t zoffset)
-    {
-        assert(mUsage & TU_RENDERTARGET);
-        assert(zoffset < mDepth);
-        return mSliceTRT[zoffset];
-    }
-    
     //********* GLES2RenderBuffer
     //----------------------------------------------------------------------------- 
     GLES2RenderBuffer::GLES2RenderBuffer(GLenum format, uint32 width, uint32 height, GLsizei numSamples):
-    GLES2HardwarePixelBuffer(width, height, 1, GLES2PixelUtil::getClosestOGREFormat(format), HBU_GPU_ONLY)
+    GLHardwarePixelBufferCommon(width, height, 1, GLES2PixelUtil::getClosestOGREFormat(format), HBU_GPU_ONLY)
     {
         GLES2RenderSystem* rs = getGLES2RenderSystem();
 
@@ -537,11 +507,6 @@ namespace Ogre {
 
         // Bind it to FBO
         OGRE_CHECK_GL_ERROR(glBindRenderbuffer(GL_RENDERBUFFER, mRenderbufferID));
-
-        if(rs->getCapabilities()->hasCapability(RSC_DEBUG))
-        {
-            OGRE_CHECK_GL_ERROR(glLabelObjectEXT(GL_RENDERBUFFER, mRenderbufferID, 0, ("RB " + StringConverter::toString(mRenderbufferID) + " MSAA: " + StringConverter::toString(mNumSamples)).c_str()));
-        }
 
         // Allocate storage for depth buffer
         if (mNumSamples > 0)

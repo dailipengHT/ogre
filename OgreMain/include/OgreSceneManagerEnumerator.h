@@ -53,7 +53,6 @@ namespace Ogre {
         /// Factory type name
         static const String FACTORY_TYPE_NAME;
         SceneManager* createInstance(const String& instanceName);
-        void destroyInstance(SceneManager* instance);
     };
 
     /// Default scene manager
@@ -159,10 +158,8 @@ namespace Ogre {
         SceneManager* createSceneManager(const String& typeName, 
             const String& instanceName = BLANKSTRING);
 
-        /**
-        @deprecated obsolete API - SceneTypeMask leads to arbitrary results
-        */
-        OGRE_DEPRECATED SceneManager* createSceneManager(SceneTypeMask typeMask,
+        /// @deprecated typeMask is obsolete
+        OGRE_DEPRECATED SceneManager* createSceneManager(uint16 typeMask,
             const String& instanceName = BLANKSTRING)
         { return createSceneManager(DefaultSceneManagerFactory::FACTORY_TYPE_NAME, instanceName); }
 

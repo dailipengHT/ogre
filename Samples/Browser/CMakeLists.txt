@@ -62,7 +62,6 @@ if (WINDOWS_STORE OR WINDOWS_PHONE)
         ${PROJECT_BINARY_DIR}/inst/bin/resources.cfg
         ${PROJECT_BINARY_DIR}/inst/bin/plugins.cfg
         ${PROJECT_BINARY_DIR}/inst/bin/samples.cfg
-        ${PROJECT_BINARY_DIR}/inst/bin/tests.cfg
 
         ${PROJECT_SOURCE_DIR}/Samples/Common/misc.winrt/Logo.png
         ${PROJECT_SOURCE_DIR}/Samples/Common/misc.winrt/SmallLogo.png
@@ -84,7 +83,6 @@ if (WINDOWS_STORE OR WINDOWS_PHONE)
         ${CMAKE_CURRENT_BINARY_DIR}/resources.cfg
         ${CMAKE_CURRENT_BINARY_DIR}/plugins.cfg
         ${CMAKE_CURRENT_BINARY_DIR}/samples.cfg
-        ${CMAKE_CURRENT_BINARY_DIR}/tests.cfg
     )
     set_property(SOURCE ${CONTENT_FILES} PROPERTY VS_DEPLOYMENT_CONTENT 1)
 
@@ -193,9 +191,9 @@ if (APPLE)
 	# NOTE: $(CONFIGURATION) is not resolvable at CMake run time, it's only 
 	# valid at build time (hence parenthesis rather than braces)
 	
-    set(OGRE_OSX_BUILD_CONFIGURATION "$ENV{PLATFORM_NAME}/$ENV{CONFIGURATION}")
+    set(OGRE_OSX_BUILD_CONFIGURATION "${CMAKE_OSX_SYSROOT}/$(CONFIGURATION)")
 	set (OGRE_SAMPLE_CONTENTS_PATH 
-		${PROJECT_BINARY_DIR}/bin/$ENV{CONFIGURATION}/SampleBrowser.app/Contents)
+		${PROJECT_BINARY_DIR}/bin/$(CONFIGURATION)/SampleBrowser.app/Contents)
 	add_custom_command(TARGET SampleBrowser POST_BUILD
 		COMMAND mkdir ARGS -p ${OGRE_SAMPLE_CONTENTS_PATH}/Frameworks
 		COMMAND ln ARGS -s -f ${PROJECT_BINARY_DIR}/lib/${OGRE_OSX_BUILD_CONFIGURATION}/Ogre.framework ${OGRE_SAMPLE_CONTENTS_PATH}/Frameworks/
@@ -223,7 +221,6 @@ if (APPLE)
         OgreRTShaderSystem
         OgreTerrain
         OgreVolume
-        OgreHLMS
         OgreMeshLodGenerator
         Plugin_BSPSceneManager
         Plugin_CgProgramManager

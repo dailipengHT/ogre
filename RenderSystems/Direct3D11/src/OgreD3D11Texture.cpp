@@ -126,11 +126,6 @@ namespace Ogre
         _setSrcAttributes(mWidth, mHeight, mDepth, mFormat);
     }
     //---------------------------------------------------------------------
-    void D3D11Texture::freeInternalResources(void)
-    {
-        freeInternalResourcesImpl();
-    }
-    //---------------------------------------------------------------------
     void D3D11Texture::freeInternalResourcesImpl()
     {
         mpTex.Reset();
@@ -138,11 +133,6 @@ namespace Ogre
         mp1DTex.Reset();
         mp2DTex.Reset();
         mp3DTex.Reset();
-    }
-    //---------------------------------------------------------------------
-    void D3D11Texture::createInternalResources(void)
-    {
-        createInternalResourcesImpl();
     }
 
     //---------------------------------------------------------------------
@@ -203,7 +193,7 @@ namespace Ogre
         assert(mSrcWidth > 0 || mSrcHeight > 0);
 
         // determine total number of mipmaps including main one (d3d11 convention)
-        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED || (1U << mNumRequestedMipmaps) > mSrcWidth) ? 0 : mNumRequestedMipmaps + 1;
+        UINT numMips = (mNumMipmaps == MIP_UNLIMITED || (1U << mNumMipmaps) > mSrcWidth) ? 0 : mNumMipmaps + 1;
 
         D3D11_TEXTURE1D_DESC desc;
         desc.Width          = static_cast<UINT>(mSrcWidth);
@@ -267,7 +257,7 @@ namespace Ogre
         assert(mSrcWidth > 0 || mSrcHeight > 0);
 
         // determine total number of mipmaps including main one (d3d11 convention)
-        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED || (1U << mNumRequestedMipmaps) > std::max(mSrcWidth, mSrcHeight)) ? 0 : mNumRequestedMipmaps + 1;
+        UINT numMips = (mNumMipmaps == MIP_UNLIMITED || (1U << mNumMipmaps) > std::max(mSrcWidth, mSrcHeight)) ? 0 : mNumMipmaps + 1;
         if(D3D11Mappings::_isBinaryCompressedFormat(mD3DFormat) && numMips > 1)
             numMips = std::max(1U, numMips - 2);
 
@@ -401,7 +391,7 @@ namespace Ogre
         assert(mWidth > 0 && mHeight > 0 && mDepth>0);
 
         // determine total number of mipmaps including main one (d3d11 convention)
-        UINT numMips = (mNumRequestedMipmaps == MIP_UNLIMITED || (1U << mNumRequestedMipmaps) > std::max(std::max(mSrcWidth, mSrcHeight), mDepth)) ? 0 : mNumRequestedMipmaps + 1;
+        UINT numMips = (mNumMipmaps == MIP_UNLIMITED || (1U << mNumMipmaps) > std::max(std::max(mSrcWidth, mSrcHeight), mDepth)) ? 0 : mNumMipmaps + 1;
 
         D3D11_TEXTURE3D_DESC desc;
         desc.Width          = static_cast<UINT>(mSrcWidth);
@@ -540,7 +530,6 @@ namespace Ogre
         mBuffer = buffer;
         mWidth = (unsigned int) mBuffer->getWidth();
         mHeight = (unsigned int) mBuffer->getHeight();
-        mColourDepth = (unsigned int) PixelUtil::getNumElemBits(mBuffer->getFormat());
         
         ID3D11Resource * pBackBuffer = buffer->getParentTexture()->getTextureResource();
 
@@ -613,7 +602,7 @@ namespace Ogre
         D3D11RenderSystem* rs = (D3D11RenderSystem*)Root::getSingleton().getRenderSystem();
         mDepthBuffer =
             new D3D11DepthBuffer(DepthBuffer::POOL_NO_DEPTH, rs, depthStencilView, mWidth, mHeight,
-                                 BBDesc.SampleDesc.Count, BBDesc.SampleDesc.Quality, true);
+                                 BBDesc.SampleDesc.Count, BBDesc.SampleDesc.Quality, false);
         mDepthBuffer->_notifyRenderTargetAttached(this);
     }
 
@@ -640,7 +629,10 @@ namespace Ogre
     //---------------------------------------------------------------------
     D3D11RenderTexture::~D3D11RenderTexture()
     {
+        if (mDepthBuffer && PixelUtil::isDepth (mBuffer->getFormat ()))
+            delete mDepthBuffer;
     }
+
     //---------------------------------------------------------------------
     void D3D11RenderTexture::notifyDeviceLost(D3D11Device* device)
     {

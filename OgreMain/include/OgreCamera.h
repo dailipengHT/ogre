@@ -71,15 +71,15 @@ namespace Ogre {
         - \f$-z\f$ is away
 
         Cameras maintain their own aspect ratios, field of view, and frustum,
-        and project co-ordinates into normalised device coordinates measured from -1 to 1 in x and y,
+        and project coordinates into normalised device coordinates measured from -1 to 1 in x and y,
         and 0 to 1 in z, where
         - \f$+x\f$ is right
         - \f$+y\f$ is up
         - \f$+z\f$ is away
 
         At render time, the camera will be rendering to a
-        Viewport which will translate these parametric co-ordinates into real screen
-        co-ordinates. Obviously it is advisable that the viewport has the same
+        Viewport which will translate these parametric coordinates into real screen
+        coordinates. Obviously it is advisable that the viewport has the same
         aspect ratio as the camera to avoid distortion (unless you want it!).
     */
     class _OgreExport Camera : public Frustum
@@ -106,7 +106,7 @@ namespace Ogre {
                         { (void)cam; }
 
         };
-    protected:
+    private:
         /// Is viewing window used.
         bool mWindowSet;
         /// Was viewing window changed.
@@ -124,9 +124,6 @@ namespace Ogre {
         /// Derived orientation/position of the camera, including reflection
         mutable Quaternion mDerivedOrientation;
         mutable Vector3 mDerivedPosition;
-
-        /// Rendering type
-        PolygonMode mSceneDetail;
 
         /// Stored number of visible faces in the last render
         unsigned int mVisFacesLastRender;
@@ -174,13 +171,15 @@ namespace Ogre {
         Frustum *mCullFrustum;
         /// Camera to use for LOD calculation
         const Camera* mLodCamera;
-        /// @see Camera::getPixelDisplayRatio
-        Real mPixelDisplayRatio;
 
         typedef std::vector<Listener*> ListenerList;
         ListenerList mListeners;
+        /// @see Camera::getPixelDisplayRatio
+        Real mPixelDisplayRatio;
 
         SortMode mSortMode;
+        /// Rendering type
+        PolygonMode mSceneDetail;
 
         // Internal functions for calcs
         bool isViewOutOfDate(void) const;
@@ -391,9 +390,11 @@ namespace Ogre {
 #endif
         /** Tells the Camera to contact the SceneManager to render from it's viewpoint.
         @param vp The viewport to render to
-        @param includeOverlays Whether or not any overlay objects should be included
         */
-        void _renderScene(Viewport *vp, bool includeOverlays);
+        void _renderScene(Viewport *vp);
+
+        /// @deprecated do not use
+        OGRE_DEPRECATED void _renderScene(Viewport *vp, bool unused) { _renderScene(vp); }
 
         /** Function for outputting to a stream.
         */
@@ -447,7 +448,6 @@ namespace Ogre {
             rotation inherited from a node attachment. */
         Vector3 getRealRight(void) const;
 
-        void getWorldTransforms(Matrix4* mat) const override;
         const String& getMovableType(void) const override;
 
         /** Sets the level-of-detail factor for this Camera.

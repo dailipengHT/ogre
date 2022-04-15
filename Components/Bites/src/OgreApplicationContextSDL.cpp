@@ -35,6 +35,9 @@ NativeWindowPair ApplicationContextSDL::createWindow(const Ogre::String& name, O
     NativeWindowPair ret = {NULL, NULL};
 
     if(!SDL_WasInit(SDL_INIT_VIDEO)) {
+        if(SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt"))
+            Ogre::LogManager::getSingleton().logMessage("[SDL] gamecontrollerdb.txt loaded");
+
         SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
     }
 
@@ -65,7 +68,7 @@ NativeWindowPair ApplicationContextSDL::createWindow(const Ogre::String& name, O
     p.miscParams["sdlwin"] = Ogre::StringConverter::toString(size_t(ret.native));
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_LINUX
-    p.miscParams["parentWindowHandle"] = Ogre::StringConverter::toString(size_t(wmInfo.info.x11.window));
+    p.miscParams["externalWindowHandle"] = Ogre::StringConverter::toString(size_t(wmInfo.info.x11.window));
 #elif OGRE_PLATFORM == OGRE_PLATFORM_WIN32
     p.miscParams["externalWindowHandle"] = Ogre::StringConverter::toString(size_t(wmInfo.info.win.window));
 #elif OGRE_PLATFORM == OGRE_PLATFORM_APPLE
@@ -102,6 +105,16 @@ void ApplicationContextSDL::setWindowGrab(NativeWindowType* win, bool _grab)
 #else
     SDL_ShowCursor(!grab);
 #endif
+}
+
+float ApplicationContextSDL::getDisplayDPI() const
+{
+    OgreAssert(!mWindows.empty(), "create a window first");
+    float vdpi = -1;
+    if(SDL_GetDisplayDPI(0, NULL, NULL, &vdpi) == 0 && vdpi > 0)
+        return vdpi;
+
+    return ApplicationContextBase::getDisplayDPI();
 }
 
 void ApplicationContextSDL::shutdown()

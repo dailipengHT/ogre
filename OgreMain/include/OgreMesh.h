@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include "OgreAnimationTrack.h"
 #include "OgreHeaderPrefix.h"
 #include "OgreSharedPtr.h"
+#include "OgreUserObjectBindings.h"
 
 
 namespace Ogre {
@@ -103,7 +104,7 @@ namespace Ogre {
         typedef std::vector<SubMesh*> SubMeshList;
         typedef std::vector<unsigned short> IndexMap;
 
-    protected:
+    private:
         /** A list of submeshes which make up this mesh.
             Each mesh is made up of 1 or more submeshes, which
             are each based on a single material and can have their
@@ -124,11 +125,13 @@ namespace Ogre {
         typedef std::unordered_map<String, ushort> SubMeshNameMap ;
 
         
-    protected:
+    private:
 
         DataStreamPtr mFreshFromDisk;
 
         SubMeshNameMap mSubMeshNameMap ;
+
+        UserObjectBindings mUserObjectBindings;
 
         /// Local bounding box volume.
         AxisAlignedBox mAABB;
@@ -138,9 +141,7 @@ namespace Ogre {
         Real mBoneBoundingRadius;
 
         /// Optional linked skeleton.
-        String mSkeletonName;
         SkeletonPtr mSkeleton;
-
        
         VertexBoneAssignmentList mBoneAssignments;
 
@@ -378,7 +379,7 @@ namespace Ogre {
 
         /** Manually set the bone bounding radius. 
         @remarks
-            This value is normally computed automatically, however it can be overriden with this method.
+            This value is normally computed automatically, however it can be overridden with this method.
         */
         void _setBoneBoundingRadius(Real radius);
 
@@ -419,7 +420,7 @@ namespace Ogre {
         void setSkeletonName(const String& skelName);
 
         /** Returns true if this Mesh has a linked Skeleton. */
-        bool hasSkeleton(void) const;
+        bool hasSkeleton(void) const { return mSkeleton != 0; }
 
         /** Returns whether or not this mesh has some kind of vertex animation. 
         */
@@ -429,7 +430,7 @@ namespace Ogre {
         @return
             Weak reference to the skeleton - copy this if you want to hold a strong pointer.
         */
-        const SkeletonPtr& getSkeleton(void) const;
+        const SkeletonPtr& getSkeleton(void) const { return mSkeleton; }
 
         /** Gets the name of any linked Skeleton */
         const String& getSkeletonName(void) const;
@@ -471,7 +472,7 @@ namespace Ogre {
             Skeleton. Best to let OGRE deal with this, don't call it yourself unless you
             really know what you're doing.
         */
-        void _notifySkeleton(SkeletonPtr& pSkel);
+        void _notifySkeleton(const SkeletonPtr& pSkel);
 
 
         /// @deprecated use getBoneAssignments
@@ -531,22 +532,9 @@ namespace Ogre {
 
         /** Sets the manager for the vertex and index buffers to be used when loading
             this Mesh.
-        @remarks
-            By default, when loading the Mesh, static, write-only vertex and index buffers 
-            will be used where possible in order to improve rendering performance. 
-            However, such buffers cannot be manipulated on the fly by CPU code 
-            (although shader code can). If you wish to use the CPU to modify these buffers
-            and will never use it with GPU, you should call this method. Note,
-            however, that it only takes effect after the Mesh has been reloaded. Note that you
-            still have the option of manually repacing the buffers in this mesh with your
-            own if you see fit too, in which case you don't need to call this method since it
-            only affects buffers created by the mesh itself.
-        @par
-            You can define the approach to a Mesh by changing the default parameters to 
-            MeshManager::load if you wish; this means the Mesh is loaded with those options
-            the first time instead of you having to reload the mesh after changing these options.
+
         @param bufferManager
-            If set to @c DefaultHardwareBufferManager, the buffers will be created in system memory
+            If set to @ref DefaultHardwareBufferManager, the buffers will be created in system memory
             only, without hardware counterparts. Such mesh could not be rendered, but LODs could be
             generated for such mesh, it could be cloned, transformed and serialized.
         */
@@ -554,52 +542,33 @@ namespace Ogre {
         HardwareBufferManagerBase* getHardwareBufferManager();
         /** Sets the policy for the vertex buffers to be used when loading
             this Mesh.
-        @remarks
-            By default, when loading the Mesh, static, write-only vertex and index buffers 
+
+            By default, when loading the %Mesh, static, write-only vertex and index buffers
             will be used where possible in order to improve rendering performance. 
             However, such buffers
             cannot be manipulated on the fly by CPU code (although shader code can). If you
-            wish to use the CPU to modify these buffers, you should call this method. Note,
-            however, that it only takes effect after the Mesh has been reloaded. Note that you
-            still have the option of manually repacing the buffers in this mesh with your
+            wish to use the CPU to modify these buffers, you should call this method.
+
+            @note This only takes effect after the Mesh has been reloaded. Also, you
+            still have the option of manually replacing the buffers in this mesh with your
             own if you see fit too, in which case you don't need to call this method since it
             only affects buffers created by the mesh itself.
-        @par
-            You can define the approach to a Mesh by changing the default parameters to 
+
+            You can define the approach to a %Mesh by changing the default parameters to
             MeshManager::load if you wish; this means the Mesh is loaded with those options
             the first time instead of you having to reload the mesh after changing these options.
         @param usage
-            The usage flags, which by default are 
-            HardwareBuffer::HBU_STATIC_WRITE_ONLY
+            The usage flag, which by default is #HBU_GPU_ONLY
         @param shadowBuffer
             If set to @c true, the vertex buffers will be created with a
             system memory shadow buffer. You should set this if you want to be able to
-            read from the buffer, because reading from a hardware buffer is a no-no.
+            read from the buffer
         */
         void setVertexBufferPolicy(HardwareBuffer::Usage usage, bool shadowBuffer = false);
         /** Sets the policy for the index buffers to be used when loading
             this Mesh.
-        @remarks
-            By default, when loading the Mesh, static, write-only vertex and index buffers 
-            will be used where possible in order to improve rendering performance. 
-            However, such buffers
-            cannot be manipulated on the fly by CPU code (although shader code can). If you
-            wish to use the CPU to modify these buffers, you should call this method. Note,
-            however, that it only takes effect after the Mesh has been reloaded. Note that you
-            still have the option of manually repacing the buffers in this mesh with your
-            own if you see fit too, in which case you don't need to call this method since it
-            only affects buffers created by the mesh itself.
-        @par
-            You can define the approach to a Mesh by changing the default parameters to 
-            MeshManager::load if you wish; this means the Mesh is loaded with those options
-            the first time instead of you having to reload the mesh after changing these options.
-        @param usage
-            The usage flags, which by default are 
-            HardwareBuffer::HBU_STATIC_WRITE_ONLY
-        @param shadowBuffer
-            If set to @c true, the index buffers will be created with a
-            system memory shadow buffer. You should set this if you want to be able to
-            read from the buffer, because reading from a hardware buffer is a no-no.
+
+            @copydetails setVertexBufferPolicy
         */
         void setIndexBufferPolicy(HardwareBuffer::Usage usage, bool shadowBuffer = false);
         /** Gets the usage setting for this meshes vertex buffers. */
@@ -705,7 +674,7 @@ namespace Ogre {
             This helper method will suggest source and destination texture coordinate sets
             for a call to buildTangentVectors. It will detect when there are inappropriate
             conditions (such as multiple geometry sets which don't agree). 
-            Moreover, it will return 'true' if it detects that there are aleady 3D 
+            Moreover, it will return 'true' if it detects that there are already 3D
             coordinates in the mesh, and therefore tangents may have been prepared already.
         @param targetSemantic
             The semantic you intend to use to store the tangents
@@ -730,24 +699,7 @@ namespace Ogre {
         /** Destroys and frees the edge lists this mesh has built. */
         void freeEdgeList(void);
 
-        /** This method prepares the mesh for generating a renderable shadow volume. 
-        @remarks
-            Preparing a mesh to generate a shadow volume involves firstly ensuring that the 
-            vertex buffer containing the positions for the mesh is a standalone vertex buffer,
-            with no other components in it. This method will therefore break apart any existing
-            vertex buffers this mesh holds if position is sharing a vertex buffer. 
-            Secondly, it will double the size of this vertex buffer so that there are 2 copies of 
-            the position data for the mesh. The first half is used for the original, and the second 
-            half is used for the 'extruded' version of the mesh. The vertex count of the main 
-            VertexData used to render the mesh will remain the same though, so as not to add any 
-            overhead to regular rendering of the object.
-            Both copies of the position are required in one buffer because shadow volumes stretch 
-            from the original mesh to the extruded version. 
-        @par
-            Because shadow volumes are rendered in turn, no additional
-            index buffer space is allocated by this method, a shared index buffer allocated by the
-            shadow rendering algorithm is used for addressing this extended vertex buffer.
-        */
+        /// @copydoc VertexData::prepareForShadowVolume
         void prepareForShadowVolume(void);
 
         /** Return the edge list for this mesh, building it if required. 
@@ -933,18 +885,6 @@ namespace Ogre {
             0 means the shared vertex data, 1+ means a submesh vertex data (index+1)
         */
         VertexData* getVertexDataByTrackHandle(unsigned short handle);
-        /** Iterates through all submeshes and requests them 
-            to apply their texture aliases to the material they use.
-        @remarks
-            The submesh will only apply texture aliases to the material if matching
-            texture alias names are found in the material.  If a match is found, the
-            submesh will automatically clone the original material and then apply its
-            texture to the new material.
-        @par
-            This method is normally called by the protected method loadImpl when a 
-            mesh if first loaded.
-        */
-        void updateMaterialForAllSubMeshes(void);
 
         /** Internal method which, if animation types have not been determined,
             scans any vertex animations and determines the type for each set of
@@ -964,14 +904,12 @@ namespace Ogre {
             A new Pose ready for population.
         */
         Pose* createPose(ushort target, const String& name = BLANKSTRING);
-        /** Get the number of poses.
-         * @deprecated use getPoseList() */
-        OGRE_DEPRECATED size_t getPoseCount(void) const { return mPoseList.size(); }
-        /** Retrieve an existing Pose by index.
-         * @deprecated use getPoseList() */
-        OGRE_DEPRECATED Pose* getPose(ushort index);
+        /** Get the number of poses */
+        size_t getPoseCount(void) const { return mPoseList.size(); }
+        /** Retrieve an existing Pose by index */
+        Pose* getPose(size_t index) const { return mPoseList.at(index); }
         /** Retrieve an existing Pose by name.*/
-        Pose* getPose(const String& name);
+        Pose* getPose(const String& name) const;
         /** Destroy a pose by index.
         @note
             This will invalidate any animation tracks referring to this pose or those after it.
@@ -1003,6 +941,11 @@ namespace Ogre {
         /** Set the lod strategy used by this mesh. */
         void setLodStrategy(LodStrategy *lodStrategy);
 #endif
+
+        /// @copydoc UserObjectBindings
+        UserObjectBindings& getUserObjectBindings() { return mUserObjectBindings; }
+        /// @overload
+        const UserObjectBindings& getUserObjectBindings() const { return mUserObjectBindings; }
     };
 
     /** A way of recording the way each LODs is recorded this Mesh. */

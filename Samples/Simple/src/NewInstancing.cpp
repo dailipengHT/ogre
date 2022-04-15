@@ -105,10 +105,10 @@ void Sample_NewInstancing::setupContent()
 {
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
     // Make this viewport work with shader generator scheme.
-    mViewport->setMaterialScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+    mViewport->setMaterialScheme(MSN_SHADERGEN);
     RTShader::ShaderGenerator& rtShaderGen = RTShader::ShaderGenerator::getSingleton();
-    RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-    RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState<RTShader::IntegratedPSSM3>();
+    RTShader::RenderState* schemRenderState = rtShaderGen.getRenderState(MSN_SHADERGEN);
+    RTShader::SubRenderState* subRenderState = rtShaderGen.createSubRenderState("SGX_IntegratedPSSM3");
     schemRenderState->addTemplateSubRenderState(subRenderState);
 
     //Add the hardware skinning to the shader generator default render state
@@ -119,8 +119,7 @@ void Sample_NewInstancing::setupContent()
     RTShader::HardwareSkinningFactory::getSingleton().setMaxCalculableBoneCount(80);
 
     // re-generate shaders to include new SRSs
-    rtShaderGen.invalidateScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
-    rtShaderGen.validateScheme(RTShader::ShaderGenerator::DEFAULT_SCHEME_NAME);
+    rtShaderGen.invalidateScheme(MSN_SHADERGEN);
 
     // update scheme for FFP supporting rendersystems
     MaterialManager::getSingleton().setActiveScheme(mViewport->getMaterialScheme());
@@ -332,7 +331,7 @@ void Sample_NewInstancing::createEntities()
         if (mAnimations.insert( anim ).second)
         {
             anim->setEnabled( true );
-            anim->addTime( float(rng())/rng.max() * 10 ); //Random start offset
+            anim->addTime( float(rng())/float(rng.max()) * 10 ); //Random start offset
         }
     }
 }
@@ -355,14 +354,14 @@ void Sample_NewInstancing::createInstancedEntities()
                 //Get the animation
                 AnimationState *anim = ent->getAnimationState( "Walk" );
                 anim->setEnabled( true );
-                anim->addTime( float(rng())/rng.max() * 10); //Random start offset
+                anim->addTime( float(rng())/float(rng.max()) * 10); //Random start offset
                 mAnimations.insert( anim );
             }
 
             if ((mInstancingTechnique < NUM_TECHNIQUES) && (!mUseSceneNodes->isChecked()))
             {
                 mMovedInstances.push_back( ent );
-                ent->setOrientation(Quaternion(Radian(float(orng())/orng.max() * 10 * Math::PI), Vector3::UNIT_Y));
+                ent->setOrientation(Quaternion(Radian(float(orng())/float(orng.max()) * 10 * Math::PI), Vector3::UNIT_Y));
                 ent->setPosition( Ogre::Vector3(mEntities[0]->getBoundingRadius() * (i - NUM_INST_ROW * 0.5f), 0,
                     mEntities[0]->getBoundingRadius() * (j - NUM_INST_COLUMN * 0.5f)) );
             }
@@ -386,7 +385,7 @@ void Sample_NewInstancing::createSceneNodes()
             {
                 SceneNode *sceneNode = rootNode->createChildSceneNode();
                 sceneNode->attachObject( mEntities[idx] );
-                sceneNode->yaw( Radian( float(rng())/rng.max() * 10 * Math::PI )); //Random orientation
+                sceneNode->yaw( Radian( float(rng())/float(rng.max()) * 10 * Math::PI )); //Random orientation
                 sceneNode->setPosition( mEntities[idx]->getBoundingRadius() * (i - NUM_INST_ROW * 0.5f), 0,
                     mEntities[idx]->getBoundingRadius() * (j - NUM_INST_COLUMN * 0.5f) );
                 mSceneNodes.push_back( sceneNode );
@@ -681,22 +680,6 @@ void Sample_NewInstancing::sliderMoved( Slider* slider )
     NUM_INST_COLUMN = static_cast<int>(mInstancesSlider->getValue());
 }
 
-//------------------------------------------------------------------------------
-void Sample_NewInstancing::testCapabilities( const RenderSystemCapabilities* caps )
-{
-    if (!GpuProgramManager::getSingleton().isSyntaxSupported("glsl") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("glsl300es") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("fp40") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("ps_2_0") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("ps_3_0") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("ps_4_0") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("ps_4_1") &&
-        !GpuProgramManager::getSingleton().isSyntaxSupported("ps_5_0"))
-    {
-        OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED, "Your card does not support the shader model needed for this sample, "
-                    "so you cannot run this sample. Sorry!", "NewInstancing::testCapabilities");
-    }
-}
 //------------------------------------------------------------------------------
 
 void Sample_NewInstancing::checkHardwareSupport()

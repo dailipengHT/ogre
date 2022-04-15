@@ -43,7 +43,6 @@ THE SOFTWARE.
 #include "OgreTechnique.h"
 #include "OgrePass.h"
 #include "OgreMaterialManager.h"
-#include "OgreSceneLoaderManager.h"
 #include "OgreCodec.h"
 #include "OgreRoot.h"
 
@@ -789,11 +788,6 @@ namespace Ogre {
         const String& instanceName)
     {
         return OGRE_NEW BspSceneManager(instanceName);
-    }
-    //-----------------------------------------------------------------------
-    void BspSceneManagerFactory::destroyInstance(SceneManager* instance)
-    {
-        OGRE_DELETE instance;
     }
 
 }

@@ -44,9 +44,9 @@ namespace Ogre
 
         desc.Filter = D3D11Mappings::get(mMinFilter, mMagFilter, mMipFilter, mCompareEnabled);
         desc.MaxAnisotropy = mMaxAniso;
-        desc.MipLODBias = static_cast<float>(Math::Clamp(mMipmapBias - 0.5, -16.00, 15.99));
-        desc.MinLOD = -D3D11_FLOAT32_MAX;
-        desc.MaxLOD = D3D11_FLOAT32_MAX;
+        desc.MipLODBias = mMipmapBias;
+        desc.MinLOD = 0;
+        desc.MaxLOD = mMipFilter == FO_NONE ? 0 : D3D11_FLOAT32_MAX;
 
         bool reversedZ = Root::getSingleton().getRenderSystem()->isReverseDepthBufferEnabled();
         auto cmpFunc = mCompareFunc;
@@ -62,7 +62,7 @@ namespace Ogre
         {
             auto borderColour =
                 (reversedZ && mCompareEnabled) ? ColourValue::White - mBorderColour : mBorderColour;
-            D3D11Mappings::get(borderColour, desc.BorderColor);
+            memcpy(desc.BorderColor, borderColour.ptr(), sizeof(float)*4);
         }
 
         OGRE_CHECK_DX_ERROR(mDevice->CreateSamplerState(&desc, mState.ReleaseAndGetAddressOf()));

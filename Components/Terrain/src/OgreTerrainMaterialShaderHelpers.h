@@ -40,11 +40,12 @@ namespace Ogre
     class ShaderHelper : public TerrainAlloc
     {
     public:
-        ShaderHelper() : mShadowSamplerStartHi(0), mShadowSamplerStartLo(0), mIsGLSL(false) {}
+        ShaderHelper() : mShadowSamplerStartHi(0) {}
         virtual ~ShaderHelper() {}
         HighLevelGpuProgramPtr generateVertexProgram(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt);
         HighLevelGpuProgramPtr generateFragmentProgram(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt);
-        void updateParams(const SM2Profile* prof, const MaterialPtr& mat, const Terrain* terrain, bool compositeMap);
+        void updateVpParams(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, const GpuProgramParametersPtr& params);
+        void updateFpParams(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, const GpuProgramParametersPtr& params);
     protected:
         String getVertexProgramName(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt);
         String getFragmentProgramName(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt);
@@ -57,13 +58,11 @@ namespace Ogre
         virtual void generateFpFooter(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, StringStream& outStream) = 0;
         void defaultVpParams(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, const HighLevelGpuProgramPtr& prog);
         void defaultFpParams(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, const HighLevelGpuProgramPtr& prog);
-        void updateVpParams(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, const GpuProgramParametersSharedPtr& params);
-        void updateFpParams(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, const GpuProgramParametersSharedPtr& params);
         static const char* getChannel(uint idx);
 
-        size_t mShadowSamplerStartHi;
-        size_t mShadowSamplerStartLo;
-        bool mIsGLSL;
+        uint32 mShadowSamplerStartHi;
+        uint32 mShadowSamplerStartLo;
+        String mLang;
     };
 
     /// Utility class to help with generating shaders for unified GLSL.
@@ -71,7 +70,6 @@ namespace Ogre
     {
         ShaderHelperGLSL();
     protected:
-        bool mIsGLES;
         HighLevelGpuProgramPtr createVertexProgram(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt);
         HighLevelGpuProgramPtr createFragmentProgram(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt);
         void generateVertexProgramSource(const SM2Profile* prof, const Terrain* terrain, TechniqueType tt, StringStream& outStream);

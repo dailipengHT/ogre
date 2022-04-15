@@ -23,10 +23,7 @@ namespace Ogre
 
         void destroy(void) {}
 
-        void reposition(int left, int top) {}
         void resize(unsigned int width, unsigned int height);
-
-        bool isClosed(void) const { return mClosed; }
 
         void copyContentsToMemory(const Box& src, const PixelBox &dst, FrameBuffer buffer);
         bool requiresTextureFlipping() const { return true; }
@@ -36,7 +33,6 @@ namespace Ogre
         void swapBuffers();
 
     protected:
-        bool mClosed;
         Image mBuffer;
         SDL_Window* mParentWindow;
     };

@@ -33,7 +33,6 @@ THE SOFTWARE.
 
 #include "OgreMovableObject.h"
 #include "OgreRenderable.h"
-#include "OgreRadixSort.h"
 #include "OgreCommon.h"
 #include "OgreResourceGroupManager.h"
 #include "OgreHeaderPrefix.h"
@@ -276,8 +275,6 @@ namespace Ogre {
             float operator()(Billboard* bill) const;
         };
 
-        static RadixSort<BillboardPool, Billboard*, float> mRadixSorter;
-
         /// Use point rendering?
         bool mPointRendering;
 
@@ -333,7 +330,7 @@ namespace Ogre {
             Behaviour once the billboard pool has been exhausted depends on the
             BillboardSet::setAutoextend option.
         @param position
-            The position of the new billboard realtive to the certer of the set
+            The position of the new billboard relative to the center of the set
         @param colour
             Optional base colour of the billboard.
         @return
@@ -543,11 +540,6 @@ namespace Ogre {
 
         virtual void getRenderOperation(RenderOperation& op) override;
         virtual void getWorldTransforms(Matrix4* xform) const override;
-
-        /// @deprecated do not use
-        OGRE_DEPRECATED void _notifyBillboardResized() {}
-        /// @deprecated do not use
-        OGRE_DEPRECATED void _notifyBillboardRotated() {}
 
         /** Returns whether or not billboards in this are tested individually for culling. */
         bool getCullIndividually(void) const { return mCullIndividual; }

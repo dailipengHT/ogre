@@ -34,6 +34,63 @@ THE SOFTWARE.
 namespace Ogre {
     static String rendererTypeName = "billboard";
 
+    /** Command object for billboard type (see ParamCommand).*/
+    class _OgrePrivate CmdBillboardType : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    /** Command object for billboard origin (see ParamCommand).*/
+    class _OgrePrivate CmdBillboardOrigin : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    /** Command object for billboard rotation type (see ParamCommand).*/
+    class _OgrePrivate CmdBillboardRotationType : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    /** Command object for common direction (see ParamCommand).*/
+    class _OgrePrivate CmdCommonDirection : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    /** Command object for common up-vector (see ParamCommand).*/
+    class _OgrePrivate CmdCommonUpVector : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    /** Command object for point rendering (see ParamCommand).*/
+    class _OgrePrivate CmdPointRendering : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    /** Command object for accurate facing(see ParamCommand).*/
+    class _OgrePrivate CmdAccurateFacing : public ParamCommand
+    {
+    public:
+        String doGet(const void* target) const;
+        void doSet(void* target, const String& val);
+    };
+    static CmdBillboardType msBillboardTypeCmd;
+    static CmdBillboardOrigin msBillboardOriginCmd;
+    static CmdBillboardRotationType msBillboardRotationTypeCmd;
+    static CmdCommonDirection msCommonDirectionCmd;
+    static CmdCommonUpVector msCommonUpVectorCmd;
+    static CmdPointRendering msPointRenderingCmd;
+    static CmdAccurateFacing msAccurateFacingCmd;
+
     static class CmdStacksAndSlices : public ParamCommand
     {
     public:
@@ -49,14 +106,6 @@ namespace Ogre {
         }
     } msStacksAndSlicesCmd;
 
-    //-----------------------------------------------------------------------
-    BillboardParticleRenderer::CmdBillboardType BillboardParticleRenderer::msBillboardTypeCmd;
-    BillboardParticleRenderer::CmdBillboardOrigin BillboardParticleRenderer::msBillboardOriginCmd;
-    BillboardParticleRenderer::CmdBillboardRotationType BillboardParticleRenderer::msBillboardRotationTypeCmd;
-    BillboardParticleRenderer::CmdCommonDirection BillboardParticleRenderer::msCommonDirectionCmd;
-    BillboardParticleRenderer::CmdCommonUpVector BillboardParticleRenderer::msCommonUpVectorCmd;
-    BillboardParticleRenderer::CmdPointRendering BillboardParticleRenderer::msPointRenderingCmd;
-    BillboardParticleRenderer::CmdAccurateFacing BillboardParticleRenderer::msAccurateFacingCmd;
     //-----------------------------------------------------------------------
     BillboardParticleRenderer::BillboardParticleRenderer() : mStacksSlices(1, 1)
     {
@@ -143,7 +192,7 @@ namespace Ogre {
     }
     //-----------------------------------------------------------------------
     void BillboardParticleRenderer::_updateRenderQueue(RenderQueue* queue, 
-        std::list<Particle*>& currentParticles, bool cullIndividually)
+        std::vector<Particle*>& currentParticles, bool cullIndividually)
     {
         mBillboardSet->setCullIndividually(cullIndividually);
 
@@ -151,10 +200,8 @@ namespace Ogre {
         mBillboardSet->beginBillboards(currentParticles.size());
         Billboard bb;
 
-        for (std::list<Particle*>::iterator i = currentParticles.begin();
-            i != currentParticles.end(); ++i)
+        for (Particle* p : currentParticles)
         {
-            Particle* p = *i;
             bb.mPosition = p->mPosition;
 
             if (mBillboardSet->getBillboardType() == BBT_ORIENTED_SELF ||
@@ -167,8 +214,9 @@ namespace Ogre {
             bb.mColour = p->mColour;
             bb.mRotation = p->mRotation;
             bb.mTexcoordIndex = p->mTexcoordIndex;
-            // Assign and compare at the same time
-            if ((bb.mOwnDimensions = p->mOwnDimensions) == true)
+            bb.mOwnDimensions = p->mWidth != mBillboardSet->getDefaultWidth() ||
+                                p->mHeight != mBillboardSet->getDefaultHeight();
+            if (bb.mOwnDimensions)
             {
                 bb.mWidth = p->mWidth;
                 bb.mHeight = p->mHeight;
@@ -200,14 +248,8 @@ namespace Ogre {
         return OGRE_NEW BillboardParticleRenderer();
     }
     //-----------------------------------------------------------------------
-    void BillboardParticleRendererFactory::destroyInstance( 
-        ParticleSystemRenderer* inst)
-    {
-        OGRE_DELETE  inst;
-    }
     //-----------------------------------------------------------------------
-    //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdBillboardType::doGet(const void* target) const
+    String CmdBillboardType::doGet(const void* target) const
     {
         BillboardType t = static_cast<const BillboardParticleRenderer*>(target)->getBillboardType();
         switch(t)
@@ -229,7 +271,7 @@ namespace Ogre {
         // Compiler nicety
         return "";
     }
-    void BillboardParticleRenderer::CmdBillboardType::doSet(void* target, const String& val)
+    void CmdBillboardType::doSet(void* target, const String& val)
     {
         BillboardType t;
         if (val == "point")
@@ -262,7 +304,7 @@ namespace Ogre {
         static_cast<BillboardParticleRenderer*>(target)->setBillboardType(t);
     }
     //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdBillboardOrigin::doGet(const void* target) const
+    String CmdBillboardOrigin::doGet(const void* target) const
     {
         BillboardOrigin o = static_cast<const BillboardParticleRenderer*>(target)->getBillboardOrigin();
         switch (o)
@@ -289,7 +331,7 @@ namespace Ogre {
         // Compiler nicety
         return BLANKSTRING;
     }
-    void BillboardParticleRenderer::CmdBillboardOrigin::doSet(void* target, const String& val)
+    void CmdBillboardOrigin::doSet(void* target, const String& val)
     {
         BillboardOrigin o;
         if (val == "top_left")
@@ -320,7 +362,7 @@ namespace Ogre {
         static_cast<BillboardParticleRenderer*>(target)->setBillboardOrigin(o);
     }
     //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdBillboardRotationType::doGet(const void* target) const
+    String CmdBillboardRotationType::doGet(const void* target) const
     {
         BillboardRotationType r = static_cast<const BillboardParticleRenderer*>(target)->getBillboardRotationType();
         switch(r)
@@ -333,7 +375,7 @@ namespace Ogre {
         // Compiler nicety
         return BLANKSTRING;
     }
-    void BillboardParticleRenderer::CmdBillboardRotationType::doSet(void* target, const String& val)
+    void CmdBillboardRotationType::doSet(void* target, const String& val)
     {
         BillboardRotationType r;
         if (val == "vertex")
@@ -350,45 +392,45 @@ namespace Ogre {
         static_cast<BillboardParticleRenderer*>(target)->setBillboardRotationType(r);
     }
     //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdCommonDirection::doGet(const void* target) const
+    String CmdCommonDirection::doGet(const void* target) const
     {
         return StringConverter::toString(
             static_cast<const BillboardParticleRenderer*>(target)->getCommonDirection() );
     }
-    void BillboardParticleRenderer::CmdCommonDirection::doSet(void* target, const String& val)
+    void CmdCommonDirection::doSet(void* target, const String& val)
     {
         static_cast<BillboardParticleRenderer*>(target)->setCommonDirection(
             StringConverter::parseVector3(val));
     }
     //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdCommonUpVector::doGet(const void* target) const
+    String CmdCommonUpVector::doGet(const void* target) const
     {
         return StringConverter::toString(
             static_cast<const BillboardParticleRenderer*>(target)->getCommonUpVector() );
     }
-    void BillboardParticleRenderer::CmdCommonUpVector::doSet(void* target, const String& val)
+    void CmdCommonUpVector::doSet(void* target, const String& val)
     {
         static_cast<BillboardParticleRenderer*>(target)->setCommonUpVector(
             StringConverter::parseVector3(val));
     }
     //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdPointRendering::doGet(const void* target) const
+    String CmdPointRendering::doGet(const void* target) const
     {
         return StringConverter::toString(
             static_cast<const BillboardParticleRenderer*>(target)->isPointRenderingEnabled() );
     }
-    void BillboardParticleRenderer::CmdPointRendering::doSet(void* target, const String& val)
+    void CmdPointRendering::doSet(void* target, const String& val)
     {
         static_cast<BillboardParticleRenderer*>(target)->setPointRenderingEnabled(
             StringConverter::parseBool(val));
     }
     //-----------------------------------------------------------------------
-    String BillboardParticleRenderer::CmdAccurateFacing::doGet(const void* target) const
+    String CmdAccurateFacing::doGet(const void* target) const
     {
         return StringConverter::toString(
             static_cast<const BillboardParticleRenderer*>(target)->getUseAccurateFacing() );
     }
-    void BillboardParticleRenderer::CmdAccurateFacing::doSet(void* target, const String& val)
+    void CmdAccurateFacing::doSet(void* target, const String& val)
     {
         static_cast<BillboardParticleRenderer*>(target)->setUseAccurateFacing(
             StringConverter::parseBool(val));

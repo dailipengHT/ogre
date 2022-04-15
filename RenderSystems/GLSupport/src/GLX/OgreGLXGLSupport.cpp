@@ -38,11 +38,8 @@
 
 #include "OgreGLUtil.h"
 
-#ifndef Status
-#define Status int
-#endif
+#include "OgreX11.h"
 
-#include <X11/Xlib.h>
 #include <X11/extensions/Xrandr.h>
 
 static bool ctxErrorOccurred = false;
@@ -59,6 +56,23 @@ static int ctxErrorHandler( Display *dpy, XErrorEvent *ev )
 
 namespace Ogre
 {
+    struct GLXVideoMode
+    {
+        typedef std::pair<uint, uint>      ScreenSize;
+        typedef short                      Rate;
+        ScreenSize first;
+        Rate second;
+
+        GLXVideoMode() {}
+        GLXVideoMode(const VideoMode& m) : first(m.width, m.height), second(m.refreshRate) {}
+
+        bool operator!=(const GLXVideoMode& o) const
+        {
+            return first != o.first || second != o.second;
+        }
+    };
+    typedef std::vector<GLXVideoMode>    GLXVideoModes;
+
     GLNativeSupport* getGLSupport(int profile)
     {
         return new GLXGLSupport(profile);
@@ -73,50 +87,7 @@ namespace Ogre
         // A connection that is NOT shared to enable independent event processing:
         mXDisplay  = getXDisplay();
 
-        int dummy;
-
-        if (XQueryExtension(mXDisplay, "RANDR", &dummy, &dummy, &dummy))
-        {
-            XRRScreenConfiguration *screenConfig;
-
-            screenConfig = XRRGetScreenInfo(mXDisplay, DefaultRootWindow(mXDisplay));
-
-            if (screenConfig)
-            {
-                XRRScreenSize *screenSizes;
-                int nSizes = 0;
-                Rotation currentRotation;
-                int currentSizeID = XRRConfigCurrentConfiguration(screenConfig, &currentRotation);
-
-                screenSizes = XRRConfigSizes(screenConfig, &nSizes);
-
-                mCurrentMode.width = screenSizes[currentSizeID].width;
-                mCurrentMode.height = screenSizes[currentSizeID].height;
-                mCurrentMode.refreshRate = XRRConfigCurrentRate(screenConfig);
-
-                mOriginalMode = mCurrentMode;
-
-                for(int sizeID = 0; sizeID < nSizes; sizeID++)
-                {
-                    short *rates;
-                    int nRates = 0;
-
-                    rates = XRRConfigRates(screenConfig, sizeID, &nRates);
-
-                    for (int rate = 0; rate < nRates; rate++)
-                    {
-                        VideoMode mode;
-
-                        mode.width = screenSizes[sizeID].width;
-                        mode.height = screenSizes[sizeID].height;
-                        mode.refreshRate = rates[rate];
-
-                        mVideoModes.push_back(mode);
-                    }
-                }
-                XRRFreeScreenConfigInfo(screenConfig);
-            }
-        }
+        getXVideoModes(mXDisplay, mCurrentMode, mVideoModes);
 
         if(mVideoModes.empty())
         {
@@ -124,10 +95,10 @@ namespace Ogre
             mCurrentMode.height = DisplayHeight(mXDisplay, DefaultScreen(mXDisplay));
             mCurrentMode.refreshRate = 0;
 
-            mOriginalMode = mCurrentMode;
-
             mVideoModes.push_back(mCurrentMode);
         }
+
+        mOriginalMode = mCurrentMode;
 
         GLXFBConfig *fbConfigs;
         int config, nConfigs = 0;
@@ -563,11 +534,20 @@ namespace Ogre
         PFNGLXCREATECONTEXTATTRIBSARBPROC _glXCreateContextAttribsARB;
         _glXCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)getProcAddress("glXCreateContextAttribsARB");
 
-        ctxErrorOccurred = false;
-
         if(_glXCreateContextAttribsARB)
         {
-            glxContext = _glXCreateContextAttribsARB(mGLDisplay, fbConfig, shareList, direct, context_attribs);
+            // find maximal supported context version
+            context_attribs[1] = 4;
+            context_attribs[3] = 6;
+            while(!glxContext &&
+                  ((context_attribs[1] > majorVersion) ||
+                   (context_attribs[1] == majorVersion && context_attribs[3] >= minorVersion)))
+            {
+                ctxErrorOccurred = false;
+                glxContext = _glXCreateContextAttribsARB(mGLDisplay, fbConfig, shareList, direct, context_attribs);
+                context_attribs[1] -= context_attribs[3] == 0; // only decrement if minor == 0
+                context_attribs[3] = (context_attribs[3] - 1 + 7) % 7; // decrement: -1 -> 6
+            }
         }
         else
         {

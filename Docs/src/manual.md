@@ -1,15 +1,16 @@
-Manual {#manual}
-======
+# Manual {#manual}
 
 - @subpage Introduction
 - @subpage The-Core-Objects
 - @subpage Resource-Management
 - @subpage Scripts
-- @subpage Runtime-Shader-Generation
+- @subpage rtss
 - @subpage Mesh-Tools
 - @subpage Hardware-Buffers
 - @subpage Shadows
 - @subpage Animation
+- @subpage Instancing
+- @subpage Cross-platform-Shaders
 
 @page Introduction Introduction
 
@@ -63,7 +64,7 @@ This tutorial gives you a quick summary of the core objects that you will use in
 
 # Overview from 10,000 feet
 
-Shown below is a diagram of some of the core objects and where they ’sit’ in the grand scheme of things. This is not all the classes by a long shot, just a few examples of the more more significant ones to give you an idea of how it slots together. ![](images/uml-overview.svg)
+Shown below is a diagram of some of the core objects and where they ’sit’ in the grand scheme of things. This is not all the classes by a long shot, just a few examples of the more more significant ones to give you an idea of how it slots together.
 
 At the very top of the diagram is the Root object. This is your ’way in’ to the OGRE system, and it’s where you tend to create the top-level objects that you need to deal with, like scene managers, rendering systems and render windows, loading plugins, all the fundamental stuff. If you don’t know where to start, Root is it for almost everything, although often it will just give you another object which will actually do the detail work, since Root itself is more of an organiser and facilitator object.
 
@@ -77,6 +78,8 @@ All rendering needs resources, whether it’s geometry, textures, fonts, whateve
 
 @par Rendering
 Finally, there’s getting the visuals on the screen - this is about the lower-level end of the rendering pipeline, the specific rendering system API objects like buffers, render states and the like and pushing it all down the pipeline. Classes in the Scene Management subsystem use this to get their higher-level scene information onto the screen.
+
+![](images/uml-overview.svg)
 
 You’ll notice that scattered around the edge are a number of plugins. OGRE is designed to be extended, and plugins are the usual way to go about it. Many of the classes in OGRE can be subclassed and extended, whether it’s changing the scene organisation through a custom SceneManager, adding a new render system implementation (e.g. Direct3D or OpenGL), or providing a way to load resources from another source (say from a web location or a database). Again this is just a small smattering of the kinds of things plugins can do, but as you can see they can plug in to almost any aspect of the system. This way, OGRE isn’t just a solution for one narrowly defined problem, it can extend to pretty much anything you need it to do.
 
@@ -285,7 +288,16 @@ If you’re creating non-animated meshes, then you do not need to be concerned w
 
 Full documentation for each exporter is provided along with the exporter itself, and there is a [selection of the currently supported modelling tools at OGRECave](https://github.com/OGRECave).
 
+## A Note About empty Material Names
 
+It is highly recommended for any mesh files to have a material name set, otherwise most mesh tools will fail with an exception.
+Even if they don't, the exception will happen deep inside the render-loop which is way harder to debug  (unless you set the material programmatically).
+
+To set a material name for the mesh, you have these options:
+
+ - Re-export the mesh from your preferred DCC (Digital Content Creator) exporter, making sure that a material has been assigned.
+ - Edit the mesh.xml file to set a material name and reprocess the xml with OgreXMLConverter.
+ - Edit the mesh file with MeshMagick [MeshMagick](https://github.com/OGRECave/meshmagick) to set a material name
 
 # XMLConverter {#XMLConverter}
 
@@ -474,8 +486,8 @@ The main disadvantage to texture shadows is that, because they are simply a text
 
 The simplest projection is just to render the shadow casters from the lights perspective using a regular camera setup. This can look bad though, so there are many other projections which can help to improve the quality from the main camera’s perspective. OGRE supports pluggable projection bases via it’s ShadowCameraSetup class, and comes with several existing options
 - **Uniform**, which is the simplest,
-- **Uniform Focussed**, which is still a normal camera projection, except that the camera is focussed into the area that the main viewing camera is looking at
-- **Light Space Perspective Shadow Mapping** (LiSPSM), which both focusses and distorts the shadow frustum based on the main view camera and
+- **Uniform Focused**, which is still a normal camera projection, except that the camera is focused into the area that the main viewing camera is looking at
+- **Light Space Perspective Shadow Mapping** (LiSPSM), which both focuses and distorts the shadow frustum based on the main view camera and
 - **Plane Optimal**, which seeks to optimise the shadow fidelity for a single receiver plane.
 
 </dd> <dt>Filtering</dt> <dd>
@@ -876,3 +888,60 @@ One example of this is the Ogre::Light class. It extends AnimableObject and prov
 ## AnimableValue
 
 When implementing custom animable properties, you have to also implement a number of methods on the AnimableValue interface - basically anything which has been marked as unimplemented. These are not pure virtual methods simply because you only have to implement the methods required for the type of value you’re animating. Again, see the examples in Light to see how this is done.
+
+
+@page Instancing Instancing
+
+Instancing significantly reduces the CPU overhead of submitting many separate draw calls and is a great technique for rendering trees, rocks, grass, RTS units and other groups of similar (but necessarily identical) objects.
+
+OGRE supports a variety of techniques to speed up the rendering of many objects in the Scene.
+
+<dl compact="compact">
+<dt>@ref Static-Geometry</dt>
+<dd>Pre-transforms and batches up meshes for efficient use as static geometry in a scene.</dd>
+<dt>@ref Instance-Manager</dt>
+<dd>Instancing is a way of batching up geometry into a much more efficient form, but with some limitations, and still be able to move & animate it.</dd>
+</dl>
+
+@tableofcontents
+
+# Static Geometry {#Static-Geometry}
+Modern graphics cards (GPUs) prefer to receive geometry in large batches.
+It is orders of magnitude faster to render 10 batches of 10,000 triangles than it is to render 10,000 batches of 10 triangles, even though both result in the same number of on-screen triangles.
+
+Therefore it is important when you are rendering a lot of geometry to batch things up into as few rendering calls as possible.
+This class allows you to build a batched object from a series of entities in order to benefit from this behaviour. Batching has implications of it's own though:
+ - A geometry region cannot be subdivided; that means that the whole group will be displayed, or none of it will. This obivously has culling issues.
+ - A single world transform must apply to the entire batch. Therefore once you have batched things, you can't move them around relative to each other.
+   That's why this class is most useful when dealing with static geometry (hence the name).
+   In addition, geometry is effectively duplicated, so if you add 3 entities based on the same mesh in different positions, they will use 3 times the geometry space than the movable version (which re-uses the same geometry).
+   So you trade memory and flexibility of movement for pure speed when using this class.
+ - A single material must apply for each batch. In fact this class allows you to use multiple materials, but you should be aware that internally this means that there is one batch per material.
+   Therefore you won't gain as much benefit from the batching if you use many different materials; try to keep the number down.
+
+@see Ogre::StaticGeometry
+@see [Tutorial - Static Geometry](@ref tut_StaticGeom)
+
+# Instance Manager {#Instance-Manager}
+Instancing is a rendering technique to draw multiple instances of the same mesh using just one render call. There are two kinds of instancing:
+
+@par Software
+Two larges vertex & index buffers are created and the mesh vertices/indices are duplicated N number of times. When rendering, invisible instances receive a transform matrix filled with 0s. This technique can take a lot of VRAM and has limited culling capabilities.
+@par Hardware
+The hardware supports an extra param which allows Ogre to tell the GPU to repeat the drawing of vertices N number of times; thus taking considerably less VRAM. Because N can be controlled at runtime, individual instances can be culled before sending the data to the GPU.
+Hardware techniques are almost always superior to Software techniques, but Software are more compatible, where as Hardware techniques require D3D9 or GL3, and is not supported in GLES2
+
+All instancing techniques require shaders. It is possible to have the [RTSS (Realtime Shader System)](@ref rtss) generate the shaders for you.
+
+@see Ogre::InstanceManager
+@see @subpage WhatIsInstancing
+
+# Static Geometry vs Instancing {#Static-Geometry-vs-Instancing}
+
+| Static Geometry | Instancing |
+| ----------------|------------|
+| Any sort of mesh is grouped in a minimal number of meshes, and cannot be updated (each mesh cannot move independently, only all the static geometry would be able to do so.) | The same mesh used many times, so Instanced geometry can be updated (each mesh can move independently) |
+| You have a scene with many unique meshes| Reuse the same mesh many times without the draw call cost. |
+| Batches up small static detail fragments like grass without shaders. | One mesh is repeated many times without the performance hit of having them as individual meshes. |
+| Geometry that doesn't move and has low in GPU requirements | Dynamic geometry (animated or moving) and better GPU (sm2.0+) |
+| Batches separate sets of polygons together, as long as they have the same properties such as material. These batches are then automatically split into regions for better culling. You can control the region size. This is a good way to reduce batches for static elements. | Good for large numbers of the same exact object. You can have multiple instances of one object that can dynamically move but that are drawn in one draw call. |

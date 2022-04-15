@@ -34,7 +34,6 @@ THE SOFTWARE.
 
 namespace Ogre {
 	//-----------------------------------------------------------------------
-	CgProgram::CmdEntryPoint CgProgram::msCmdEntryPoint;
 	CgProgram::CmdProfiles CgProgram::msCmdProfiles;
 	CgProgram::CmdArgs CgProgram::msCmdArgs;
 	//-----------------------------------------------------------------------
@@ -173,7 +172,9 @@ namespace Ogre {
 	{
 		selectProfile();
 
-        uint32 hash = FastHash("CG", 2); // HLSL and Cg shaders are indentical
+		// need to differentiate between target profiles
+		// also HLSL and Cg shaders sources are identical
+        uint32 hash = HashCombine(0, mSelectedCgProfile);
         hash = _getHash(hash);
 
 		if ( GpuProgramManager::getSingleton().isMicrocodeAvailableInCache(hash) )
@@ -481,7 +482,7 @@ namespace Ogre {
 				// Create a low-level program, give it the same name as us
                 mAssemblerProgram =
 					GpuProgramManager::getSingleton().createProgramFromString(
-					mName,
+					mName+"/Delegate",
 					mGroup,
 					mProgramString,
 					mType,
@@ -886,7 +887,7 @@ namespace Ogre {
         }
 	}
 	//-----------------------------------------------------------------------
-	void CgProgram::buildConstantDefinitions() const
+	void CgProgram::buildConstantDefinitions()
 	{
 		// Derive parameter names from Cg
 		createParameterMappingStructures(true);
@@ -894,8 +895,7 @@ namespace Ogre {
 		if ( mProgramString.empty() )
 			return;
 
-		mConstantDefs->floatBufferSize = mFloatLogicalToPhysical->bufferSize;
-		mConstantDefs->intBufferSize = mIntLogicalToPhysical->bufferSize;
+		mConstantDefs->bufferSize = mLogicalToPhysical->bufferSize;
 
 		GpuConstantDefinitionMap::const_iterator iter = mParametersMap.begin();
 		GpuConstantDefinitionMap::const_iterator iterE = mParametersMap.end();
@@ -906,20 +906,10 @@ namespace Ogre {
 			mConstantDefs->map.emplace(iter->first, iter->second);
 
 			// Record logical / physical mapping
-			if (def.isFloat())
-			{
-							OGRE_LOCK_MUTEX(mFloatLogicalToPhysical->mutex);
-				mFloatLogicalToPhysical->map.emplace(def.logicalIndex,
-						GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
-				mFloatLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
-			}
-			else
-			{
-							OGRE_LOCK_MUTEX(mIntLogicalToPhysical->mutex);
-				mIntLogicalToPhysical->map.emplace(def.logicalIndex,
-						GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
-				mIntLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
-			}
+			OGRE_LOCK_MUTEX(mLogicalToPhysical->mutex);
+			mLogicalToPhysical->map.emplace(def.logicalIndex,
+					GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL, def.isFloat() ? BCT_FLOAT: BCT_INT));
+			mLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
 		}
 	}
 	//---------------------------------------------------------------------
@@ -1008,14 +998,7 @@ namespace Ogre {
 					else
 					{
 						// base position on existing buffer contents
-						if (def.isFloat())
-						{
-							def.physicalIndex = mFloatLogicalToPhysical->bufferSize;
-						}
-						else
-						{
-							def.physicalIndex = mIntLogicalToPhysical->bufferSize;
-						}
+						def.physicalIndex = mLogicalToPhysical->bufferSize*4;
 					}
 
 					def.logicalIndex = logicalIndex;
@@ -1028,20 +1011,10 @@ namespace Ogre {
 					}
 
 					// Record logical / physical mapping
-					if (def.isFloat())
-					{
-											OGRE_LOCK_MUTEX(mFloatLogicalToPhysical->mutex);
-						mFloatLogicalToPhysical->map.emplace(def.logicalIndex,
-								GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
-						mFloatLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
-					}
-					else
-					{
-											OGRE_LOCK_MUTEX(mIntLogicalToPhysical->mutex);
-						mIntLogicalToPhysical->map.emplace(def.logicalIndex,
-								GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL));
-						mIntLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
-					}
+					OGRE_LOCK_MUTEX(mFloatLogicalToPhysical->mutex);
+					mLogicalToPhysical->map.emplace(def.logicalIndex,
+							GpuLogicalIndexUse(def.physicalIndex, def.arraySize * def.elementSize, GPV_GLOBAL, def.isFloat() ? BCT_FLOAT : BCT_INT));
+					mLogicalToPhysical->bufferSize += def.arraySize * def.elementSize;
 
 					break;
 				}
@@ -1207,7 +1180,6 @@ namespace Ogre {
 		ManualResourceLoader* loader, CGcontext context)
 		: HighLevelGpuProgram(creator, name, handle, group, isManual, loader),
 		mCgContext(context),
-        mEntryPoint("main"),
 		mSelectedCgProfile(CG_PROFILE_UNKNOWN), mCgArguments(0), mParametersMapSizeAsBuffer(0)
 	{
 		if (createParamDictionary("CgProgram"))
@@ -1216,9 +1188,6 @@ namespace Ogre {
 
 			ParamDictionary* dict = getParamDictionary();
 
-			dict->addParameter(ParameterDef("entry_point",
-				"The entry point for the Cg program.",
-				PT_STRING),&msCmdEntryPoint);
 			dict->addParameter(ParameterDef("profiles",
 				"Space-separated list of Cg profiles supported by this profile.",
 				PT_STRING),&msCmdProfiles);
@@ -1270,15 +1239,6 @@ namespace Ogre {
 	}
 	//-----------------------------------------------------------------------
 	//-----------------------------------------------------------------------
-	//-----------------------------------------------------------------------
-	String CgProgram::CmdEntryPoint::doGet(const void *target) const
-	{
-		return static_cast<const CgProgram*>(target)->getEntryPoint();
-	}
-	void CgProgram::CmdEntryPoint::doSet(void *target, const String& val)
-	{
-		static_cast<CgProgram*>(target)->setEntryPoint(val);
-	}
 	//-----------------------------------------------------------------------
 	String CgProgram::CmdProfiles::doGet(const void *target) const
 	{

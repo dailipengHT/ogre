@@ -63,11 +63,6 @@ namespace Ogre {
     class _OgreExport Renderable
     {
     public:
-        /// @deprecated do not use
-        class RenderSystemData {};
-        typedef SharedPtr<RenderSystemData> RenderSystemDataPtr;
-        
-    public:
         enum
         {
             DEFAULT_PRIORITY = 100
@@ -300,29 +295,17 @@ namespace Ogre {
         }
 
         /** @deprecated use UserObjectBindings::setUserAny via getUserObjectBindings() instead.
-            Sets any kind of user value on this object.
-        @remarks
-            This method allows you to associate any user value you like with 
-            this Renderable. This can be a pointer back to one of your own
-            classes for instance.
         */
         OGRE_DEPRECATED void setUserAny(const Any& anything) { getUserObjectBindings().setUserAny(anything); }
 
         /** @deprecated use UserObjectBindings::getUserAny via getUserObjectBindings() instead.
-            Retrieves the custom user value associated with this object.
         */
         OGRE_DEPRECATED const Any& getUserAny(void) const { return getUserObjectBindings().getUserAny(); }
 
-        /** Return an instance of user objects binding associated with this class.
-            You can use it to associate one or more custom objects with this class instance.
-        @see UserObjectBindings::setUserAny.
-        */
+        /// @copydoc UserObjectBindings
         UserObjectBindings& getUserObjectBindings() { return mUserObjectBindings; }
 
-        /** Return an instance of user objects binding associated with this class.
-            You can use it to associate one or more custom objects with this class instance.
-        @see UserObjectBindings::setUserAny.
-        */
+        /// @overload
         const UserObjectBindings& getUserObjectBindings() const { return mUserObjectBindings; }
 
 
@@ -357,26 +340,13 @@ namespace Ogre {
                 Any* pAny = 0) = 0;
         };
 
-        /// @deprecated do not use
-        OGRE_DEPRECATED const RenderSystemDataPtr& getRenderSystemData() const
-        { 
-            return mRenderSystemData; 
-        }
-        /// @deprecated do not use
-        OGRE_DEPRECATED void setRenderSystemData(RenderSystemDataPtr val) const
-        { 
-            mRenderSystemData = val; 
-        }
-
-
     protected:
         typedef std::map<size_t, Vector4> CustomParameterMap;
         CustomParameterMap mCustomParameters;
+        UserObjectBindings mUserObjectBindings;      /// User objects binding.
         bool mPolygonModeOverrideable;
         bool mUseIdentityProjection;
         bool mUseIdentityView;
-        UserObjectBindings mUserObjectBindings;      /// User objects binding.
-        mutable RenderSystemDataPtr mRenderSystemData;/// This should be used only by a render system for internal use
     };
 
     /** @} */

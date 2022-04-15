@@ -37,15 +37,14 @@ namespace Ogre {
     class _OgreMetalExport MetalHardwareBufferManager : public HardwareBufferManager
     {
     protected:
-        MetalDiscardBufferManager *mDiscardBufferManager;
-
+        MetalDevice *mDevice;
+        OGRE_MUTEX(mIndexBuffersMutex);
+        IndexBufferList mIndexBuffers;
     public:
         MetalHardwareBufferManager( MetalDevice *device);
         virtual ~MetalHardwareBufferManager();
 
         void _notifyDeviceStalled(void);
-
-        MetalDiscardBufferManager* _getDiscardBufferManager(void)   { return mDiscardBufferManager; }
 
         /// Creates a vertex buffer
         virtual HardwareVertexBufferSharedPtr createVertexBuffer( size_t vertexSize, size_t numVerts,

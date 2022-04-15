@@ -67,13 +67,12 @@ namespace Ogre
         compiled, this class will then validate the parameters you supplied earlier and turn them
         into runtime parameters.
     @par
-        Just incase it wasn't clear from the above, this class provides linkage to both 
+        Just in case it wasn't clear from the above, this class provides linkage to both
         GpuProgram and HighLevelGpuProgram, despite its name.
     */
     class _OgreExport GpuProgramUsage : public Resource::Listener, public PassAlloc
     {
-    protected:
-        GpuProgramType mType;
+    private:
         Pass* mParent;
         /// The program link
         GpuProgramPtr mProgram;
@@ -83,6 +82,7 @@ namespace Ogre
         
         /// Whether to recreate parameters next load
         bool mRecreateParams;
+        GpuProgramType mType;
 
         void recreateParameters();
 

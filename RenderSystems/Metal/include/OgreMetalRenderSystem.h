@@ -41,18 +41,22 @@ namespace Ogre
 {
         class HardwareBufferManager;
 
-    /**
-       Implementation of Metal as a rendering system.
+    /** \addtogroup RenderSystems RenderSystems
+    *  @{
+    */
+    /** \defgroup Metal Metal
+    * Implementation of Metal as a rendering system.
+    *  @{
     */
     class _OgreMetalExport MetalRenderSystem : public RenderSystem
     {
         MTLRenderPipelineDescriptor *psd;
         MTLDepthStencilDescriptor*    mDepthStencilDesc;
+        id<MTLDepthStencilState>    mDepthStencilState;
         bool                        mDepthStencilDescChanged;
 
         bool mInitialized;
         HardwareBufferManager   *mHardwareBufferManager;
-        GpuProgramManager      *mShaderManager;
         MetalProgramFactory         *mMetalProgramFactory;
 
         bool mStencilEnabled;
@@ -96,7 +100,6 @@ namespace Ogre
         virtual void shutdown(void);
 
         virtual const String& getName(void) const;
-        virtual const String& getFriendlyName(void) const;
         virtual void setConfigOption(const String &name, const String &value) {}
 
         virtual HardwareOcclusionQuery* createHardwareOcclusionQuery(void);
@@ -114,13 +117,7 @@ namespace Ogre
 
         virtual DepthBuffer* _createDepthBufferFor( RenderTarget *renderTarget);
 
-        void setStencilCheckEnabled(bool enabled);
-        void setStencilBufferParams(CompareFunction func = CMPF_ALWAYS_PASS, uint32 refValue = 0,
-                                    uint32 compareMask = 0xFFFFFFFF, uint32 writeMask = 0xFFFFFFFF,
-                                    StencilOperation stencilFailOp = SOP_KEEP,
-                                    StencilOperation depthFailOp = SOP_KEEP,
-                                    StencilOperation passOp = SOP_KEEP, bool twoSidedOperation = false,
-                                    bool readBackAsTexture = false);
+        void setStencilState(const StencilState& state) override;
 
         /// See VaoManager::waitForTailFrameToFinish
         virtual void _waitForTailFrameToFinish(void);
@@ -153,14 +150,12 @@ namespace Ogre
             const GpuProgramParametersPtr& params, uint16 variabilityMask);
         virtual void clearFrameBuffer(unsigned int buffers,
             const ColourValue& colour = ColourValue::Black,
-            Real depth = 1.0f, unsigned short stencil = 0);
-        virtual void discardFrameBuffer( unsigned int buffers );
+            float depth = 1.0f, unsigned short stencil = 0);
 
         virtual Real getMinimumDepthInputValue(void);
         virtual Real getMaximumDepthInputValue(void);
 
         virtual void _setRenderTarget(RenderTarget *target);
-        virtual void _notifyCompositorNodeSwitchedRenderTarget( RenderTarget *previousTarget );
 
         virtual void beginProfileEvent( const String &eventName );
         virtual void endProfileEvent( void );
@@ -180,6 +175,8 @@ namespace Ogre
         void _notifyActiveComputeEnded(void);
         void _notifyDeviceStalled(void);
     };
+    /** @} */
+    /** @} */
 }
 
 #endif

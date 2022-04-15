@@ -44,7 +44,7 @@ THE SOFTWARE.
 #include "OgreException.h"
 #include "OgreGLSLExtSupport.h"
 #include "OgreGLHardwareOcclusionQuery.h"
-#include "OgreGLDepthBuffer.h"
+#include "OgreGLDepthBufferCommon.h"
 #include "OgreGLHardwarePixelBuffer.h"
 #include "OgreGLContext.h"
 #include "OgreGLSLProgramFactory.h"
@@ -68,6 +68,11 @@ extern "C" void glFlushRenderAPPLE();
 #define VBO_BUFFER_OFFSET(i) ((char *)(i))
 
 namespace Ogre {
+
+    static GLNativeSupport* glsupport;
+    static void* get_proc(const char* proc) {
+        return glsupport->getProcAddress(proc);
+    }
 
     typedef TransformBase<4, float> Matrix4f;
 
@@ -172,6 +177,7 @@ namespace Ogre {
 
         // Get our GLSupport
         mGLSupport = getGLSupport(GLNativeSupport::CONTEXT_COMPATIBILITY);
+        glsupport = mGLSupport;
 
         mWorldMatrix = Matrix4::IDENTITY;
         mViewMatrix = Matrix4::IDENTITY;
@@ -353,6 +359,13 @@ namespace Ogre {
     {
         GLRenderSystemCommon::initConfigOptions();
 
+        ConfigOption optRTTMode;
+        optRTTMode.name = "RTT Preferred Mode";
+        optRTTMode.possibleValues = {"FBO", "PBuffer", "Copy"};
+        optRTTMode.currentValue = optRTTMode.possibleValues[0];
+        optRTTMode.immutable = true;
+        mOptions[optRTTMode.name] = optRTTMode;
+
         ConfigOption opt;
         opt.name = "Fixed Pipeline Enabled";
         opt.possibleValues = {"Yes", "No"};
@@ -385,7 +398,7 @@ namespace Ogre {
         GLint units;
         glGetIntegerv( GL_MAX_TEXTURE_UNITS, &units );
 
-        if (GLEW_ARB_fragment_program)
+        if (GLAD_GL_ARB_fragment_program)
         {
             // Also check GL_MAX_TEXTURE_IMAGE_UNITS_ARB since NV at least
             // only increased this on the FX/6x00 series
@@ -397,7 +410,7 @@ namespace Ogre {
         rsc->setNumTextureUnits(std::min(OGRE_MAX_TEXTURE_LAYERS, units));
 
         // Check for Anisotropy support
-        if(GLEW_EXT_texture_filter_anisotropic)
+        if(GLAD_GL_EXT_texture_filter_anisotropic)
         {
             GLfloat maxAnisotropy = 0;
             glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
@@ -405,20 +418,18 @@ namespace Ogre {
             rsc->setCapability(RSC_ANISOTROPY);
         }
 
-        rsc->setCapability(RSC_DOT3);
-
         // Point sprites
-        if (GLEW_VERSION_2_0 || GLEW_ARB_point_sprite)
+        if (GLAD_GL_VERSION_2_0 || GLAD_GL_ARB_point_sprite)
         {
             rsc->setCapability(RSC_POINT_SPRITES);
         }
 
-        if(GLEW_ARB_point_parameters)
+        if(GLAD_GL_ARB_point_parameters)
         {
             glPointParameterf = glPointParameterfARB;
             glPointParameterfv = glPointParameterfvARB;
         }
-        else if(GLEW_EXT_point_parameters)
+        else if(GLAD_GL_EXT_point_parameters)
         {
             glPointParameterf = glPointParameterfEXT;
             glPointParameterfv = glPointParameterfvEXT;
@@ -434,7 +445,6 @@ namespace Ogre {
         if(stencil)
         {
             rsc->setCapability(RSC_HWSTENCIL);
-            rsc->setStencilBufferBitDepth(stencil);
         }
 
         rsc->setCapability(RSC_HW_GAMMA);
@@ -442,14 +452,11 @@ namespace Ogre {
         rsc->setCapability(RSC_MAPBUFFER);
         rsc->setCapability(RSC_32BIT_INDEX);
 
-        if(GLEW_ARB_vertex_program)
+        if(GLAD_GL_ARB_vertex_program)
         {
             rsc->setCapability(RSC_VERTEX_PROGRAM);
 
             // Vertex Program Properties
-            rsc->setVertexProgramConstantBoolCount(0);
-            rsc->setVertexProgramConstantIntCount(0);
-
             GLint floatConstantCount;
             glGetProgramivARB(GL_VERTEX_PROGRAM_ARB, GL_MAX_PROGRAM_LOCAL_PARAMETERS_ARB, &floatConstantCount);
             rsc->setVertexProgramConstantFloatCount(floatConstantCount);
@@ -459,39 +466,32 @@ namespace Ogre {
             rsc->setNumVertexAttributes(attrs);
 
             rsc->addShaderProfile("arbvp1");
-            if (GLEW_NV_vertex_program2_option)
+            if (GLAD_GL_NV_vertex_program2_option)
             {
                 rsc->addShaderProfile("vp30");
             }
 
-            if (GLEW_NV_vertex_program3)
+            if (GLAD_GL_NV_vertex_program3)
             {
                 rsc->addShaderProfile("vp40");
             }
 
-            if (GLEW_NV_gpu_program4)
+            if (GLAD_GL_NV_gpu_program4)
             {
                 rsc->addShaderProfile("gp4vp");
                 rsc->addShaderProfile("gpu_vp");
             }
         }
 
-        if (GLEW_NV_register_combiners2 &&
-            GLEW_NV_texture_shader)
+        if (GLAD_GL_NV_register_combiners2 &&
+            GLAD_GL_NV_texture_shader)
         {
-            rsc->setCapability(RSC_FRAGMENT_PROGRAM);
             rsc->addShaderProfile("fp20");
         }
 
         // NFZ - check for ATI fragment shader support
-        if (GLEW_ATI_fragment_shader)
+        if (GLAD_GL_ATI_fragment_shader)
         {
-            rsc->setCapability(RSC_FRAGMENT_PROGRAM);
-            // no boolean params allowed
-            rsc->setFragmentProgramConstantBoolCount(0);
-            // no integer params allowed
-            rsc->setFragmentProgramConstantIntCount(0);
-
             // only 8 Vector4 constant floats supported
             rsc->setFragmentProgramConstantFloatCount(8);
 
@@ -501,30 +501,25 @@ namespace Ogre {
             rsc->addShaderProfile("ps_1_1");
         }
 
-        if (GLEW_ARB_fragment_program)
+        if (GLAD_GL_ARB_fragment_program)
         {
-            rsc->setCapability(RSC_FRAGMENT_PROGRAM);
-
             // Fragment Program Properties
-            rsc->setFragmentProgramConstantBoolCount(0);
-            rsc->setFragmentProgramConstantIntCount(0);
-
             GLint floatConstantCount;
             glGetProgramivARB(GL_FRAGMENT_PROGRAM_ARB, GL_MAX_PROGRAM_LOCAL_PARAMETERS_ARB, &floatConstantCount);
             rsc->setFragmentProgramConstantFloatCount(floatConstantCount);
 
             rsc->addShaderProfile("arbfp1");
-            if (GLEW_NV_fragment_program_option)
+            if (GLAD_GL_NV_fragment_program_option)
             {
                 rsc->addShaderProfile("fp30");
             }
 
-            if (GLEW_NV_fragment_program2)
+            if (GLAD_GL_NV_fragment_program2)
             {
                 rsc->addShaderProfile("fp40");
             }
 
-            if (GLEW_NV_gpu_program4)
+            if (GLAD_GL_NV_gpu_program4)
             {
                 rsc->addShaderProfile("gp4fp");
                 rsc->addShaderProfile("gpu_fp");
@@ -532,11 +527,11 @@ namespace Ogre {
         }
 
         // NFZ - Check if GLSL is supported
-        if ( GLEW_VERSION_2_0 ||
-             (GLEW_ARB_shading_language_100 &&
-              GLEW_ARB_shader_objects &&
-              GLEW_ARB_fragment_shader &&
-              GLEW_ARB_vertex_shader) )
+        if ( GLAD_GL_VERSION_2_0 ||
+             (GLAD_GL_ARB_shading_language_100 &&
+              GLAD_GL_ARB_shader_objects &&
+              GLAD_GL_ARB_fragment_shader &&
+              GLAD_GL_ARB_vertex_shader) )
         {
             rsc->addShaderProfile("glsl");
             if(getNativeShadingLanguageVersion() >= 120)
@@ -548,23 +543,19 @@ namespace Ogre {
         }
 
         // Check if geometry shaders are supported
-        if (GLEW_VERSION_2_0 &&
-            GLEW_EXT_geometry_shader4)
+        if (hasMinGLVersion(3, 2) || (GLAD_GL_VERSION_2_0 && GLAD_GL_EXT_geometry_shader4))
         {
             rsc->setCapability(RSC_GEOMETRY_PROGRAM);
-            rsc->setGeometryProgramConstantBoolCount(0);
-            rsc->setGeometryProgramConstantIntCount(0);
-
             GLint floatConstantCount = 0;
             glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS_EXT, &floatConstantCount);
-            rsc->setGeometryProgramConstantFloatCount(floatConstantCount);
+            rsc->setGeometryProgramConstantFloatCount(floatConstantCount/4);
 
             GLint maxOutputVertices;
             glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT,&maxOutputVertices);
             rsc->setGeometryProgramNumOutputVertices(maxOutputVertices);
         }
 
-        if(GLEW_NV_gpu_program4)
+        if(GLAD_GL_NV_gpu_program4)
         {
             rsc->setCapability(RSC_GEOMETRY_PROGRAM);
             rsc->addShaderProfile("nvgp4");
@@ -586,15 +577,15 @@ namespace Ogre {
                 rsc->setCapability(RSC_CAN_GET_COMPILED_SHADER_BUFFER);
         }
 
-        if (GLEW_VERSION_3_3 || GLEW_ARB_instanced_arrays)
+        if (hasMinGLVersion(3, 3) || GLAD_GL_ARB_instanced_arrays)
         {
             // states 3.3 here: http://www.opengl.org/sdk/docs/man3/xhtml/glVertexAttribDivisor.xml
             rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
         }
 
         //Check if render to vertex buffer (transform feedback in OpenGL)
-        if (GLEW_VERSION_2_0 &&
-            GLEW_NV_transform_feedback)
+        if (GLAD_GL_VERSION_2_0 &&
+            GLAD_GL_NV_transform_feedback)
         {
             rsc->setCapability(RSC_HWRENDER_TO_VERTEX_BUFFER);
         }
@@ -603,7 +594,7 @@ namespace Ogre {
         rsc->setCapability(RSC_TEXTURE_COMPRESSION);
 
         // Check for dxt compression
-        if(GLEW_EXT_texture_compression_s3tc)
+        if(GLAD_GL_EXT_texture_compression_s3tc)
         {
 #if defined(__APPLE__) && defined(__PPC__)
             // Apple on ATI & PPC has errors in DXT
@@ -612,38 +603,30 @@ namespace Ogre {
                 rsc->setCapability(RSC_TEXTURE_COMPRESSION_DXT);
         }
         // Check for vtc compression
-        if(GLEW_NV_texture_compression_vtc)
+        if(GLAD_GL_NV_texture_compression_vtc)
         {
             rsc->setCapability(RSC_TEXTURE_COMPRESSION_VTC);
         }
 
-        // Scissor test is standard in GL 1.2 (is it emulated on some cards though?)
-        rsc->setCapability(RSC_SCISSOR_TEST);
         // As are user clipping planes
         rsc->setCapability(RSC_USER_CLIP_PLANES);
 
         // 2-sided stencil?
-        if (GLEW_VERSION_2_0 || GLEW_EXT_stencil_two_side)
+        if (GLAD_GL_VERSION_2_0 || GLAD_GL_EXT_stencil_two_side)
         {
             rsc->setCapability(RSC_TWO_SIDED_STENCIL);
         }
         rsc->setCapability(RSC_STENCIL_WRAP);
         rsc->setCapability(RSC_HWOCCLUSION);
 
-        // UBYTE4 always supported
-        rsc->setCapability(RSC_VERTEX_FORMAT_UBYTE4);
-
-        // Infinite far plane always supported
-        rsc->setCapability(RSC_INFINITE_FAR_PLANE);
-
         // Check for non-power-of-2 texture support
-        if(GLEW_ARB_texture_non_power_of_two)
+        if(GLAD_GL_ARB_texture_non_power_of_two)
         {
             rsc->setCapability(RSC_NON_POWER_OF_2_TEXTURES);
         }
 
         // Check for Float textures
-        if(GLEW_ATI_texture_float || GLEW_ARB_texture_float)
+        if(GLAD_GL_ATI_texture_float || GLAD_GL_ARB_texture_float)
         {
             rsc->setCapability(RSC_TEXTURE_FLOAT);
         }
@@ -652,17 +635,17 @@ namespace Ogre {
         rsc->setCapability(RSC_TEXTURE_1D);
         rsc->setCapability(RSC_TEXTURE_3D);
 
-        if(GLEW_VERSION_3_0 || GLEW_EXT_texture_array)
+        if(hasMinGLVersion(3, 0) || GLAD_GL_EXT_texture_array)
             rsc->setCapability(RSC_TEXTURE_2D_ARRAY);
 
         // Check for framebuffer object extension
-        if(GLEW_EXT_framebuffer_object)
+        if(GLAD_GL_EXT_framebuffer_object)
         {
             // Probe number of draw buffers
             // Only makes sense with FBO support, so probe here
-            if(GLEW_VERSION_2_0 ||
-               GLEW_ARB_draw_buffers ||
-               GLEW_ATI_draw_buffers)
+            if(GLAD_GL_VERSION_2_0 ||
+               GLAD_GL_ARB_draw_buffers ||
+               GLAD_GL_ATI_draw_buffers)
             {
                 GLint buffers;
                 glGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &buffers);
@@ -674,7 +657,7 @@ namespace Ogre {
         }
 
         // Check GLSupport for PBuffer support
-        if(GLEW_ARB_pixel_buffer_object || GLEW_EXT_pixel_buffer_object)
+        if(GLAD_GL_ARB_pixel_buffer_object || GLAD_GL_EXT_pixel_buffer_object)
         {
             // Use PBuffers
             rsc->setCapability(RSC_HWRENDER_TO_TEXTURE);
@@ -696,8 +679,6 @@ namespace Ogre {
             {
                 rsc->setCapability(RSC_VERTEX_TEXTURE_FETCH);
             }
-            // GL always shares vertex and fragment texture units (for now?)
-            rsc->setVertexTextureUnitsShared(true);
         }
 
         rsc->setCapability(RSC_MIPMAP_LOD_BIAS);
@@ -708,12 +689,6 @@ namespace Ogre {
             // Alpha to coverage always 'supported' when MSAA is available
             // although card may ignore it if it doesn't specifically support A2C
             rsc->setCapability(RSC_ALPHA_TO_COVERAGE);
-        }
-
-        // Advanced blending operations
-        if(GLEW_VERSION_2_0)
-        {
-            rsc->setCapability(RSC_ADVANCED_BLEND_OPERATIONS);
         }
 
         GLfloat lineWidth[2] = {1, 1};
@@ -748,7 +723,7 @@ namespace Ogre {
             }
         }
 
-        if(!GLEW_ARB_vertex_buffer_object)
+        if(!GLAD_GL_ARB_vertex_buffer_object)
         {
             // Assign ARB functions same to GL 1.5 version since
             // interface identical
@@ -880,7 +855,7 @@ namespace Ogre {
             LogManager::getSingleton().logMessage("GLSL support detected");
         }
 
-        if(caps->hasCapability(RSC_HWOCCLUSION) && !GLEW_ARB_occlusion_query)
+        if(caps->hasCapability(RSC_HWOCCLUSION) && !GLAD_GL_ARB_occlusion_query)
         {
             // Assign ARB functions same to GL 1.5 version since
             // interface identical
@@ -919,10 +894,10 @@ namespace Ogre {
         if(caps->hasCapability(RSC_HWRENDER_TO_TEXTURE) && rttMode < 1)
         {
             // Before GL version 2.0, we need to get one of the extensions
-            if(GLEW_ARB_draw_buffers)
-                GLEW_GET_FUN(__glewDrawBuffers) = glDrawBuffersARB;
-            else if(GLEW_ATI_draw_buffers)
-                GLEW_GET_FUN(__glewDrawBuffers) = glDrawBuffersATI;
+            if(GLAD_GL_ARB_draw_buffers)
+                glDrawBuffers = glDrawBuffersARB;
+            else if(GLAD_GL_ATI_draw_buffers)
+                glDrawBuffers = glDrawBuffersATI;
 
             // Create FBO manager
             LogManager::getSingleton().logMessage("GL: Using GL_EXT_framebuffer_object for rendering to textures (best)");
@@ -938,7 +913,7 @@ namespace Ogre {
                 {
                     // Use PBuffers
                     mRTTManager = new GLPBRTTManager(mGLSupport, primary);
-                    LogManager::getSingleton().logMessage("GL: Using PBuffers for rendering to textures");
+                    LogManager::getSingleton().logWarning("GL: Using PBuffers for rendering to textures");
 
                     //TODO: Depth buffer sharing in pbuffer is left unsupported
                 }
@@ -947,8 +922,8 @@ namespace Ogre {
             {
                 // No pbuffer support either -- fallback to simplest copying from framebuffer
                 mRTTManager = new GLCopyingRTTManager();
-                LogManager::getSingleton().logMessage("GL: Using framebuffer copy for rendering to textures (worst)");
-                LogManager::getSingleton().logMessage("GL: Warning: RenderTexture size is restricted to size of framebuffer. If you are on Linux, consider using GLX instead of SDL.");
+                LogManager::getSingleton().logWarning("GL: Using framebuffer copy for rendering to textures (worst)");
+                LogManager::getSingleton().logWarning("GL: RenderTexture size is restricted to size of framebuffer. If you are on Linux, consider using GLX instead of SDL.");
 
                 //Copy method uses the main depth buffer but no other depth buffer
                 caps->setCapability(RSC_RTT_MAIN_DEPTHBUFFER_ATTACHABLE);
@@ -1071,10 +1046,8 @@ namespace Ogre {
             //Only Copy does, but Copy means only one depth buffer...
             GLContext *windowContext = dynamic_cast<GLRenderTarget*>(win)->getContext();;
 
-            GLDepthBuffer *depthBuffer = new GLDepthBuffer( DepthBuffer::POOL_DEFAULT, this,
-                                                            windowContext, 0, 0,
-                                                            win->getWidth(), win->getHeight(),
-                                                            win->getFSAA(), true );
+            auto depthBuffer =
+                new GLDepthBufferCommon(DepthBuffer::POOL_DEFAULT, this, windowContext, 0, 0, win, true);
 
             mDepthBufferPool[depthBuffer->getPoolId()].push_back( depthBuffer );
 
@@ -1086,15 +1059,11 @@ namespace Ogre {
     //---------------------------------------------------------------------
     DepthBuffer* GLRenderSystem::_createDepthBufferFor( RenderTarget *renderTarget )
     {
-        GLDepthBuffer *retVal = 0;
-
         if( auto fbo = dynamic_cast<GLRenderTarget*>(renderTarget)->getFBO() )
         {
-            //Presence of an FBO means the manager is an FBO Manager, that's why it's safe to downcast
             //Find best depth & stencil format suited for the RT's format
             GLuint depthFormat, stencilFormat;
-            static_cast<GLFBOManager*>(mRTTManager)->getBestDepthStencil( fbo->getFormat(),
-                                                                          &depthFormat, &stencilFormat );
+            mRTTManager->getBestDepthStencil(fbo->getFormat(), &depthFormat, &stencilFormat);
 
             GLRenderBuffer *depthBuffer = new GLRenderBuffer( depthFormat, fbo->getWidth(),
                                                               fbo->getHeight(), fbo->getFSAA() );
@@ -1111,19 +1080,11 @@ namespace Ogre {
                                                     fbo->getHeight(), fbo->getFSAA() );
             }
 
-            //No "custom-quality" multisample for now in GL
-            retVal = new GLDepthBuffer( 0, this, mCurrentContext, depthBuffer, stencilBuffer,
-                                        fbo->getWidth(), fbo->getHeight(), fbo->getFSAA(), false );
-        }
-        else
-        {
-            // Only FBO support different depth buffers, so everything
-            // else creates dummy (empty) containers
-            retVal = new GLDepthBuffer(0, this, mCurrentContext, NULL, NULL, renderTarget->getWidth(),
-                                       renderTarget->getHeight(), renderTarget->getFSAA(), false);
+            return new GLDepthBufferCommon(0, this, mCurrentContext, depthBuffer, stencilBuffer,
+                                           renderTarget, false);
         }
 
-        return retVal;
+        return NULL;
     }
 
     void GLRenderSystem::initialiseContext(RenderWindow* primary)
@@ -1136,23 +1097,22 @@ namespace Ogre {
         if(mCurrentContext)
             mCurrentContext->setCurrent();
 
-        // Setup GLSupport
-        initialiseExtensions();
+        gladLoadGLLoader(get_proc);
 
-        LogManager::getSingleton().logMessage("***************************");
-        LogManager::getSingleton().logMessage("*** GL Renderer Started ***");
-        LogManager::getSingleton().logMessage("***************************");
-
-        // Get extension function pointers
-        glewInit();
-
-        if (!GLEW_VERSION_1_5) {
+        if (!GLAD_GL_VERSION_1_5) {
             OGRE_EXCEPT(Exception::ERR_RENDERINGAPI_ERROR,
                         "OpenGL 1.5 is not supported",
                         "GLRenderSystem::initialiseContext");
         }
 
+        // Get extension function pointers
+        initialiseExtensions();
+
         mStateCacheManager = mCurrentContext->createOrRetrieveStateCacheManager<GLStateCacheManager>();
+
+        LogManager::getSingleton().logMessage("***************************");
+        LogManager::getSingleton().logMessage("*** GL Renderer Started ***");
+        LogManager::getSingleton().logMessage("***************************");
     }
 
 
@@ -1195,7 +1155,7 @@ namespace Ogre {
             {
                 //A DepthBuffer with no depth & stencil pointers is a dummy one,
                 //look for the one that matches the same GL context
-                GLDepthBuffer *depthBuffer = static_cast<GLDepthBuffer*>(*itor);
+                auto depthBuffer = static_cast<GLDepthBufferCommon*>(*itor);
                 GLContext *glContext = depthBuffer->getGLContext();
 
                 if( glContext == windowContext &&
@@ -1470,10 +1430,10 @@ namespace Ogre {
                 target, GL_TEXTURE_MAX_ANISOTROPY_EXT,
                 std::min<uint>(mCurrentCapabilities->getMaxSupportedAnisotropy(), sampler.getAnisotropy()));
 
-        if(GLEW_VERSION_2_0)
+        if(GLAD_GL_VERSION_2_0)
         {
             mStateCacheManager->setTexParameteri(target, GL_TEXTURE_COMPARE_MODE,
-                                                 sampler.getCompareEnabled() ? GL_COMPARE_REF_TO_TEXTURE
+                                                 sampler.getCompareEnabled() ? GL_COMPARE_REF_DEPTH_TO_TEXTURE_EXT
                                                                              : GL_NONE);
             if (sampler.getCompareEnabled())
                 mStateCacheManager->setTexParameteri(target, GL_TEXTURE_COMPARE_FUNC,
@@ -1802,36 +1762,18 @@ namespace Ogre {
         // face by glFrontFace anywhere.
 
         GLenum cullMode;
+        bool flip = flipFrontFace();
 
         switch( mode )
         {
         case CULL_NONE:
             mStateCacheManager->setEnabled( GL_CULL_FACE, false );
             return;
-        default:
         case CULL_CLOCKWISE:
-            if (mActiveRenderTarget && 
-                ((mActiveRenderTarget->requiresTextureFlipping() && !mInvertVertexWinding) ||
-                (!mActiveRenderTarget->requiresTextureFlipping() && mInvertVertexWinding)))
-            {
-                cullMode = GL_FRONT;
-            }
-            else
-            {
-                cullMode = GL_BACK;
-            }
+            cullMode = flip ? GL_FRONT : GL_BACK;
             break;
         case CULL_ANTICLOCKWISE:
-            if (mActiveRenderTarget && 
-                ((mActiveRenderTarget->requiresTextureFlipping() && !mInvertVertexWinding) ||
-                (!mActiveRenderTarget->requiresTextureFlipping() && mInvertVertexWinding)))
-            {
-                cullMode = GL_BACK;
-            }
-            else
-            {
-                cullMode = GL_FRONT;
-            }
+            cullMode = flip ? GL_BACK : GL_FRONT;
             break;
         }
 
@@ -1972,79 +1914,76 @@ namespace Ogre {
         mStateCacheManager->setPolygonMode(glmode);
     }
     //---------------------------------------------------------------------
-    void GLRenderSystem::setStencilCheckEnabled(bool enabled)
+    void GLRenderSystem::setStencilState(const StencilState& state)
     {
-        mStateCacheManager->setEnabled(GL_STENCIL_TEST, enabled);
-    }
-    //---------------------------------------------------------------------
-    void GLRenderSystem::setStencilBufferParams(CompareFunction func,
-                                                uint32 refValue, uint32 compareMask, uint32 writeMask, StencilOperation stencilFailOp,
-                                                StencilOperation depthFailOp, StencilOperation passOp,
-                                                bool twoSidedOperation, bool readBackAsTexture)
-    {
-        bool flip;
-        mStencilWriteMask = writeMask;
+        mStateCacheManager->setEnabled(GL_STENCIL_TEST, state.enabled);
 
-        if (twoSidedOperation)
+        if(!state.enabled)
+            return;
+
+        bool flip;
+        mStencilWriteMask = state.writeMask;
+
+        auto compareOp = convertCompareFunction(state.compareOp);
+
+        if (state.twoSidedOperation)
         {
             if (!mCurrentCapabilities->hasCapability(RSC_TWO_SIDED_STENCIL))
-                OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "2-sided stencils are not supported",
-                            "GLRenderSystem::setStencilBufferParams");
+                OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "2-sided stencils are not supported");
 
             // NB: We should always treat CCW as front face for consistent with default
             // culling mode. Therefore, we must take care with two-sided stencil settings.
-            flip = (mInvertVertexWinding && !mActiveRenderTarget->requiresTextureFlipping()) ||
-                (!mInvertVertexWinding && mActiveRenderTarget->requiresTextureFlipping());
-            if(GLEW_VERSION_2_0) // New GL2 commands
+            flip = flipFrontFace();
+            if(GLAD_GL_VERSION_2_0) // New GL2 commands
             {
                 // Back
-                glStencilMaskSeparate(GL_BACK, writeMask);
-                glStencilFuncSeparate(GL_BACK, convertCompareFunction(func), refValue, compareMask);
+                glStencilMaskSeparate(GL_BACK, state.writeMask);
+                glStencilFuncSeparate(GL_BACK, compareOp, state.referenceValue, state.compareMask);
                 glStencilOpSeparate(GL_BACK, 
-                    convertStencilOp(stencilFailOp, !flip), 
-                    convertStencilOp(depthFailOp, !flip), 
-                    convertStencilOp(passOp, !flip));
+                    convertStencilOp(state.stencilFailOp, !flip),
+                    convertStencilOp(state.depthFailOp, !flip),
+                    convertStencilOp(state.depthStencilPassOp, !flip));
                 // Front
-                glStencilMaskSeparate(GL_FRONT, writeMask);
-                glStencilFuncSeparate(GL_FRONT, convertCompareFunction(func), refValue, compareMask);
+                glStencilMaskSeparate(GL_FRONT, state.writeMask);
+                glStencilFuncSeparate(GL_FRONT, compareOp, state.referenceValue, state.compareMask);
                 glStencilOpSeparate(GL_FRONT, 
-                    convertStencilOp(stencilFailOp, flip),
-                    convertStencilOp(depthFailOp, flip), 
-                    convertStencilOp(passOp, flip));
+                    convertStencilOp(state.stencilFailOp, flip),
+                    convertStencilOp(state.depthFailOp, flip),
+                    convertStencilOp(state.depthStencilPassOp, flip));
             }
             else // EXT_stencil_two_side
             {
                 mStateCacheManager->setEnabled(GL_STENCIL_TEST_TWO_SIDE_EXT, true);
                 // Back
                 glActiveStencilFaceEXT(GL_BACK);
-                mStateCacheManager->setStencilMask(writeMask);
-                glStencilFunc(convertCompareFunction(func), refValue, compareMask);
+                mStateCacheManager->setStencilMask(state.writeMask);
+                glStencilFunc(compareOp, state.referenceValue, state.compareMask);
                 glStencilOp(
-                    convertStencilOp(stencilFailOp, !flip),
-                    convertStencilOp(depthFailOp, !flip),
-                    convertStencilOp(passOp, !flip));
+                    convertStencilOp(state.stencilFailOp, !flip),
+                    convertStencilOp(state.depthFailOp, !flip),
+                    convertStencilOp(state.depthStencilPassOp, !flip));
                 // Front
                 glActiveStencilFaceEXT(GL_FRONT);
-                mStateCacheManager->setStencilMask(writeMask);
-                glStencilFunc(convertCompareFunction(func), refValue, compareMask);
+                mStateCacheManager->setStencilMask(state.writeMask);
+                glStencilFunc(compareOp, state.referenceValue, state.compareMask);
                 glStencilOp(
-                    convertStencilOp(stencilFailOp, flip),
-                    convertStencilOp(depthFailOp, flip),
-                    convertStencilOp(passOp, flip));
+                    convertStencilOp(state.stencilFailOp, flip),
+                    convertStencilOp(state.depthFailOp, flip),
+                    convertStencilOp(state.depthStencilPassOp, flip));
             }
         }
         else
         {
-            if(!GLEW_VERSION_2_0)
+            if(!GLAD_GL_VERSION_2_0)
                 mStateCacheManager->setEnabled(GL_STENCIL_TEST_TWO_SIDE_EXT, false);
 
             flip = false;
-            mStateCacheManager->setStencilMask(writeMask);
-            glStencilFunc(convertCompareFunction(func), refValue, compareMask);
+            mStateCacheManager->setStencilMask(state.writeMask);
+            glStencilFunc(compareOp, state.referenceValue, state.compareMask);
             glStencilOp(
-                convertStencilOp(stencilFailOp, flip),
-                convertStencilOp(depthFailOp, flip),
-                convertStencilOp(passOp, flip));
+                convertStencilOp(state.stencilFailOp, flip),
+                convertStencilOp(state.depthFailOp, flip),
+                convertStencilOp(state.depthStencilPassOp, flip));
         }
     }
     //---------------------------------------------------------------------
@@ -2367,10 +2306,6 @@ namespace Ogre {
 
         HardwareVertexBufferSharedPtr globalInstanceVertexBuffer = getGlobalInstanceVertexBuffer();
         VertexDeclaration* globalVertexDeclaration = getGlobalInstanceVertexBufferVertexDeclaration();
-        bool hasInstanceData = (op.useGlobalInstancingVertexBufferIsAvailable &&
-                                globalInstanceVertexBuffer && globalVertexDeclaration != NULL) ||
-                                op.vertexData->vertexBufferBinding->hasInstanceData();
-
         size_t numberOfInstances = op.numberOfInstances;
 
         if (op.useGlobalInstancingVertexBufferIsAvailable)
@@ -2466,7 +2401,7 @@ namespace Ogre {
 
             do
             {
-                if(hasInstanceData)
+                if(numberOfInstances > 1)
                 {
                     glDrawElementsInstancedARB(primType, op.indexData->indexCount, indexType, pBufferData, numberOfInstances);
                 }
@@ -2481,7 +2416,7 @@ namespace Ogre {
         {
             do
             {
-                if(hasInstanceData)
+                if(numberOfInstances > 1)
                 {
                     glDrawArraysInstancedARB(primType, 0, op.vertexData->vertexCount, numberOfInstances);
                 }
@@ -2511,7 +2446,7 @@ namespace Ogre {
         }
         glDisableClientState( GL_NORMAL_ARRAY );
         glDisableClientState( GL_COLOR_ARRAY );
-        if (GLEW_EXT_secondary_color)
+        if (GLAD_GL_EXT_secondary_color)
         {
             glDisableClientState( GL_SECONDARY_COLOR_ARRAY );
         }
@@ -2730,7 +2665,7 @@ namespace Ogre {
     }
     //---------------------------------------------------------------------
     void GLRenderSystem::clearFrameBuffer(unsigned int buffers,
-                                          const ColourValue& colour, Real depth, unsigned short stencil)
+                                          const ColourValue& colour, float depth, unsigned short stencil)
     {
         bool colourMask =
             !(mCurrentBlend.writeR && mCurrentBlend.writeG && mCurrentBlend.writeB && mCurrentBlend.writeA);
@@ -2917,7 +2852,7 @@ namespace Ogre {
             }
 
             //Check the FBO's depth buffer status
-            GLDepthBuffer *depthBuffer = static_cast<GLDepthBuffer*>(target->getDepthBuffer());
+            auto depthBuffer = static_cast<GLDepthBufferCommon*>(target->getDepthBuffer());
 
             if( target->getDepthBufferPool() != DepthBuffer::POOL_NO_DEPTH &&
                 (!depthBuffer || depthBuffer->getGLContext() != mCurrentContext ) )
@@ -2930,7 +2865,7 @@ namespace Ogre {
             // Bind frame buffer object
             mRTTManager->bind(target);
 
-            if (GLEW_EXT_framebuffer_sRGB)
+            if (GLAD_GL_EXT_framebuffer_sRGB)
             {
                 // Enable / disable sRGB states
                 mStateCacheManager->setEnabled(GL_FRAMEBUFFER_SRGB_EXT, target->isHardwareGammaEnabled());
@@ -2977,7 +2912,7 @@ namespace Ogre {
         if( eventName.empty() )
             return;
 
-        if(GLEW_GREMEDY_string_marker)
+        if(GLAD_GL_GREMEDY_string_marker)
             glStringMarkerGREMEDY(eventName.length(), eventName.c_str());
     }
 
@@ -3025,15 +2960,6 @@ namespace Ogre {
             GLboolean normalised = GL_FALSE;
             switch(elem.getType())
             {
-            case VET_COLOUR:
-            case VET_COLOUR_ABGR:
-            case VET_COLOUR_ARGB:
-                // Because GL takes these as a sequence of single unsigned bytes, count needs to be 4
-                // VertexElement::getTypeCount treats them as 1 (RGBA)
-                // Also need to normalise the fixed-point data
-                typeCount = 4;
-                normalised = GL_TRUE;
-                break;
             case VET_UBYTE4_NORM:
             case VET_SHORT2_NORM:
             case VET_USHORT2_NORM:
@@ -3084,7 +3010,7 @@ namespace Ogre {
                 glEnableClientState( GL_COLOR_ARRAY );
                 break;
             case VES_SPECULAR:
-                if (GLEW_EXT_secondary_color)
+                if (GLAD_GL_EXT_secondary_color)
                 {
                     glSecondaryColorPointerEXT(4,
                                                GLHardwareBufferManager::getGLType(elem.getType()),
