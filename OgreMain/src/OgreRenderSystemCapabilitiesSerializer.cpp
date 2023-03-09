@@ -61,17 +61,17 @@ namespace Ogre
 
         file << endl;
 
-        for(CapabilitiesMap::iterator it = mCapabilitiesMap.begin(); it != mCapabilitiesMap.end(); ++it) {
-            file << "\t" << it->first << " " << StringConverter::toString(caps->hasCapability(it->second)) << endl;
+        for(auto & it : mCapabilitiesMap) {
+            file << "\t" << it.first << " " << StringConverter::toString(caps->hasCapability(it.second)) << endl;
         }
 
         file << endl;
 
         RenderSystemCapabilities::ShaderProfiles profiles = caps->getSupportedShaderProfiles();
         // write every profile
-        for(RenderSystemCapabilities::ShaderProfiles::iterator it = profiles.begin(), end = profiles.end(); it != end; ++it)
+        for(const auto & profile : profiles)
         {
-            file << "\t" << "shader_profile " << *it << endl;
+            file << "\t" << "shader_profile " << profile << endl;
         }
 
         file << endl;
@@ -83,12 +83,12 @@ namespace Ogre
         file << endl;
         file << "\t" << "num_texture_units " << StringConverter::toString(caps->getNumTextureUnits()) << endl;
         file << "\t" << "num_multi_render_targets " << StringConverter::toString(caps->getNumMultiRenderTargets()) << endl;
-        file << "\t" << "vertex_program_constant_float_count " << StringConverter::toString(caps->getVertexProgramConstantFloatCount()) << endl;
-        file << "\t" << "fragment_program_constant_float_count " << StringConverter::toString(caps->getFragmentProgramConstantFloatCount()) << endl;
-        file << "\t" << "geometry_program_constant_float_count " << StringConverter::toString(caps->getGeometryProgramConstantFloatCount()) << endl;
-        file << "\t" << "tessellation_hull_program_constant_float_count " << StringConverter::toString(caps->getTessellationHullProgramConstantFloatCount()) << endl;
-        file << "\t" << "tessellation_domain_program_constant_float_count " << StringConverter::toString(caps->getTessellationDomainProgramConstantFloatCount()) << endl;
-        file << "\t" << "compute_program_constant_float_count " << StringConverter::toString(caps->getComputeProgramConstantFloatCount()) << endl;
+        file << "\t" << "vertex_program_constant_float_count " << StringConverter::toString(caps->getConstantFloatCount(GPT_VERTEX_PROGRAM)) << endl;
+        file << "\t" << "fragment_program_constant_float_count " << StringConverter::toString(caps->getConstantFloatCount(GPT_FRAGMENT_PROGRAM)) << endl;
+        file << "\t" << "geometry_program_constant_float_count " << StringConverter::toString(caps->getConstantFloatCount(GPT_GEOMETRY_PROGRAM)) << endl;
+        file << "\t" << "tessellation_hull_program_constant_float_count " << StringConverter::toString(caps->getConstantFloatCount(GPT_HULL_PROGRAM)) << endl;
+        file << "\t" << "tessellation_domain_program_constant_float_count " << StringConverter::toString(caps->getConstantFloatCount(GPT_DOMAIN_PROGRAM)) << endl;
+        file << "\t" << "compute_program_constant_float_count " << StringConverter::toString(caps->getConstantFloatCount(GPT_COMPUTE_PROGRAM)) << endl;
         file << "\t" << "num_vertex_texture_units " << StringConverter::toString(caps->getNumVertexTextureUnits()) << endl;
         file << "\t" << "num_vertex_attributes " << StringConverter::toString(caps->getNumVertexAttributes()) << endl;
 
@@ -386,13 +386,13 @@ namespace Ogre
     {
         StringVector tokens;
 
-        for (CapabilitiesLinesList::iterator it = lines.begin(), end = lines.end(); it != end; ++it)
+        for (auto & line : lines)
         {
             // restore the current line information for debugging
-            mCurrentLine = &(it->first);
-            mCurrentLineNumber = it->second;
+            mCurrentLine = &(line.first);
+            mCurrentLineNumber = line.second;
 
-            tokens = StringUtil::split(it->first);
+            tokens = StringUtil::split(line.first);
             // check for incomplete lines
             if(tokens.size() < 2)
             {

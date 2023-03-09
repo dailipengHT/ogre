@@ -36,6 +36,8 @@ THE SOFTWARE.
 #include "OgreHeaderPrefix.h"
 
 namespace Ogre {
+    enum TexCoordCalcMethod : uint8;
+
     /** \addtogroup Core
     *  @{
     */
@@ -136,7 +138,7 @@ namespace Ogre {
         option on this texture to Ogre::FO_ANISOTROPIC.
         @param maxAniso
             The maximal anisotropy level, should be between 2 and the maximum
-            supported by hardware (1 is the default, ie. no anisotrophy).
+            supported by hardware (1 is the default, ie. no anisotropy).
         */
         void setAnisotropy(unsigned int maxAniso)
         {
@@ -262,17 +264,16 @@ namespace Ogre {
 
         };
 
-        /** Enumeration to specify type of envmap.
-        */
+        /// %Texture coordinate generation method for environment mapping.
         enum EnvMapType
         {
-            /// Envmap based on vector from camera to vertex position, good for planar geometry.
+            /// 2D texture coordinates using view space position. Same as ENV_CURVED on all backends.
             ENV_PLANAR,
-            /// Envmap based on dot of vector from camera to vertex and vertex normal, good for curves.
+            /// 2D texture coordinates using spherical reflection mapping
             ENV_CURVED,
-            /// Envmap intended to supply reflection vectors for cube mapping.
+            /// Cubic texture coordinates using the reflection vector
             ENV_REFLECTION,
-            /// Envmap intended to supply normal vectors for cube mapping.
+            /// Cubic texture coordinates using the normal vector
             ENV_NORMAL
         };
 
@@ -320,7 +321,7 @@ namespace Ogre {
             Real frequency;
             Real phase;
             Real amplitude;
-            Controller<Real>* controller;
+            ControllerFloat* controller;
             const Frustum* frustum;
         };
 
@@ -350,7 +351,7 @@ namespace Ogre {
         TextureUnitState( Pass* parent, const String& texName, unsigned int texCoordSet = 0);
 
         /** Get the name of current texture image for this layer.
-        @remarks
+
             This will either always be a single name for this layer,
             or will be the name of the current frame for an animated
             or otherwise multi-frame texture.
@@ -471,19 +472,6 @@ namespace Ogre {
         */
         unsigned int getNumFrames(void) const;
 
-
-        /** The type of unit to bind the texture settings to.
-            @deprecated only D3D9 has separate sampler bindings. All other RenderSystems use unified pipelines.
-         */
-        enum BindingType : uint8
-        {
-            /** Regular fragment processing unit - the default. */
-            BT_FRAGMENT = 0,
-            /** Vertex processing unit - indicates this unit will be used for 
-                a vertex texture fetch.
-            */
-            BT_VERTEX = 1
-        };
         /** Enum identifying the type of content this texture unit contains.
         */
         enum ContentType : uint8
@@ -498,14 +486,8 @@ namespace Ogre {
             CONTENT_COMPOSITOR = 2
         };
 
-        /// @deprecated obsolete
-        OGRE_DEPRECATED void setBindingType(BindingType bt);
-
-        /// @deprecated obsolete
-        OGRE_DEPRECATED BindingType getBindingType(void) const;
-
         /** Set the type of content this TextureUnitState references.
-        @remarks
+
             The default is to reference a standard named texture, but this unit
             can also reference automated content like a shadow texture.
         */
@@ -561,6 +543,10 @@ namespace Ogre {
             material uses.
         */
         void setTextureCoordSet(unsigned int set);
+
+        /// Enables Unordered Access to the provided mipLevel of the texture
+        void setUnorderedAccessMipLevel(int mipLevel) { mUnorderedAccessMipLevel = mipLevel; }
+        int getUnorderedAccessMipLevel() const { return mUnorderedAccessMipLevel; }
 
         /** Sets a matrix used to transform any texture coordinates on this layer.
 
@@ -863,13 +849,13 @@ namespace Ogre {
             Real manualBlend = 0.0);
 
         /** Generic method for setting up texture effects.
-        @remarks
-            Allows you to specify effects directly by using the TextureEffectType enumeration. The
+
+            Allows you to specify effects directly by using the #TextureEffectType enumeration. The
             arguments that go with it depend on the effect type. Only one effect of
             each type can be applied to a texture layer.
         @par
             This method is used internally by Ogre but it is better generally for applications to use the
-            more intuitive specialised methods such as setEnvironmentMap and setScroll.
+            more intuitive specialised methods such as #setEnvironmentMap and #setTextureScroll.
         */
         void addEffect(TextureEffect& effect);
 
@@ -880,9 +866,7 @@ namespace Ogre {
 
             The vectors generated can either be used to address a single 2D texture which
             is a 'fish-eye' lens view of a scene, or a 3D cubic environment map which requires 6 textures
-            for each side of the inside of a cube. The type depends on what texture you set up - if you use the
-            setTextureName method then a 2D fisheye lens texture is required, whereas if you used setCubicTextureName
-            then a cubic environment map will be used.
+            for each side of the inside of a cube.
 
             This effect works best if the object has lots of gradually changing normals. The texture also
             has to be designed for this effect - see the example spheremap.png included with the sample
@@ -894,10 +878,9 @@ namespace Ogre {
             generated coordinates rather than static model texture coordinates.
         @param enable
             True to enable, false to disable
-        @param envMapType
-            The type of environment mapping to perform. Planar, curved, reflection or normal. @see EnvMapType
+        @param texGenType texture coordinate generation type
         */
-        void setEnvironmentMap(bool enable, EnvMapType envMapType = ENV_CURVED);
+        void setEnvironmentMap(bool enable, EnvMapType texGenType = ENV_CURVED);
 
         /** Sets up an animated scroll for the texture layer.
 
@@ -939,7 +922,7 @@ namespace Ogre {
 
 
         /** Enables or disables projective texturing on this texture unit.
-        @remarks
+
             Projective texturing allows you to generate texture coordinates 
             based on a Frustum, which gives the impression that a texture is
             being projected onto the surface. Note that once you have called
@@ -1028,8 +1011,6 @@ namespace Ogre {
         void _load(void);
         /** Internal method for unloading this object as part of Material::unload. */
         void _unload(void);
-        /// Returns whether this unit has texture coordinate generation that depends on the camera.
-        bool hasViewRelativeTextureCoordinateGeneration(void) const;
 
         /// Is this loaded?
         bool isLoaded(void) const;
@@ -1068,10 +1049,12 @@ namespace Ogre {
         /** Gets the animation controller (as created because of setAnimatedTexture)
             if it exists.
         */
-        Controller<Real>* _getAnimController() const { return mAnimController; }
+        ControllerFloat* _getAnimController() const { return mAnimController; }
 
         /// return a sampler local to this TUS instead of the shared global one
         const SamplerPtr& _getLocalSampler();
+
+        TexCoordCalcMethod _deriveTexCoordCalcMethod() const;
 private:
         // State
         /// The current animation frame.
@@ -1081,6 +1064,8 @@ private:
         Real mAnimDuration;
 
         unsigned int mTextureCoordSetIndex;
+
+        int mUnorderedAccessMipLevel;
 
         LayerBlendModeEx mColourBlendMode;
         SceneBlendFactor mColourBlendFallbackSrc;
@@ -1093,8 +1078,6 @@ private:
         Radian mRotate;
         mutable Matrix4 mTexModMatrix;
 
-        /// Binding type (fragment, vertex, tessellation hull and domain pipeline).
-        BindingType mBindingType;
         /// Content type of texture (normal loaded texture, auto-texture).
         ContentType mContentType;
 
@@ -1122,7 +1105,7 @@ private:
         // preserving even if assign from others
         //
         Pass* mParent;
-        Controller<Real>* mAnimController;
+        ControllerFloat* mAnimController;
         //-----------------------------------------------------------------------------
 
 
@@ -1144,6 +1127,8 @@ private:
         void ensureLoaded(size_t frame) const;
 
         TexturePtr retrieveTexture(const String& name);
+
+        bool checkTexCalcSettings(const TexturePtr& tex) const;
     };
 
     /** @} */

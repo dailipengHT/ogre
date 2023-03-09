@@ -258,6 +258,9 @@ namespace Ogre
 
         if (!isAttached())
             mLocalNode->attachObject(this);
+
+        mQueryFlags = mTerrain->getQueryFlags();
+        mVisibilityFlags = mTerrain->getVisibilityFlags();
     }
     //---------------------------------------------------------------------
     void TerrainQuadTreeNode::unload()
@@ -618,10 +621,13 @@ namespace Ogre
             numVerts += mVertexDataRecord->size * mVertexDataRecord->numSkirtRowsCols;
             numVerts += mVertexDataRecord->size * mVertexDataRecord->numSkirtRowsCols;
             // manually create CPU-side buffer
-            HardwareVertexBufferSharedPtr posbuf(
-                OGRE_NEW DefaultHardwareVertexBuffer(dcl->getVertexSize(POSITION_BUFFER), numVerts, HardwareBuffer::HBU_STATIC_WRITE_ONLY));
-            HardwareVertexBufferSharedPtr deltabuf(
-                OGRE_NEW DefaultHardwareVertexBuffer(dcl->getVertexSize(DELTA_BUFFER), numVerts, HardwareBuffer::HBU_STATIC_WRITE_ONLY));
+            auto pos_sz = dcl->getVertexSize(POSITION_BUFFER);
+            auto posbuf = std::make_shared<HardwareVertexBuffer>(nullptr, pos_sz, numVerts,
+                                                                 new DefaultHardwareBuffer(pos_sz * numVerts));
+
+            auto delta_sz = dcl->getVertexSize(DELTA_BUFFER);
+            auto deltabuf = std::make_shared<HardwareVertexBuffer>(nullptr, delta_sz, numVerts,
+                                                                   new DefaultHardwareBuffer(delta_sz * numVerts));
 
             mVertexDataRecord->cpuVertexData->vertexStart = 0;
             mVertexDataRecord->cpuVertexData->vertexCount = numVerts;
@@ -634,8 +640,8 @@ namespace Ogre
         }
     }
     //----------------------------------------------------------------------
-    void TerrainQuadTreeNode::updateVertexBuffer(HardwareVertexBufferSharedPtr& posbuf, 
-        HardwareVertexBufferSharedPtr& deltabuf, const Rect& rect)
+    void TerrainQuadTreeNode::updateVertexBuffer(const HardwareVertexBufferPtr& posbuf,
+        const HardwareVertexBufferPtr& deltabuf, const Rect& rect)
     {
         assert (rect.left >= mOffsetX && rect.right <= mBoundaryX && 
             rect.top >= mOffsetY && rect.bottom <= mBoundaryY);
@@ -1319,8 +1325,7 @@ namespace Ogre
                             // vertices which would drop out at this LOD, even 
                             // while using the single shared vertex data
                             setCustomParameter(Terrain::LOD_MORPH_CUSTOM_PARAM,
-                                Vector4(mLodTransition, mCurrentLod + mBaseLod + 1, 0, 0));
-
+                                               Vector4f(mLodTransition, mCurrentLod + mBaseLod + 1, 0, 0));
                         }
                         // since LODs are ordered from highest to lowest detail, 
                         // we can stop looking now
@@ -1362,14 +1367,13 @@ namespace Ogre
     {
          mCurrentLod = lod;
          setCustomParameter(Terrain::LOD_MORPH_CUSTOM_PARAM,
-             Vector4(mLodTransition, mCurrentLod + mBaseLod + 1, 0, 0));
+                            Vector4f(mLodTransition, mCurrentLod + mBaseLod + 1, 0, 0));
     }
     //---------------------------------------------------------------------
     void TerrainQuadTreeNode::setLodTransition(float t)
     {
-        mLodTransition = t;                         
-        setCustomParameter(Terrain::LOD_MORPH_CUSTOM_PARAM,
-            Vector4(mLodTransition, mCurrentLod + mBaseLod + 1, 0, 0));
+        mLodTransition = t;
+        setCustomParameter(Terrain::LOD_MORPH_CUSTOM_PARAM, Vector4f(mLodTransition, mCurrentLod + mBaseLod + 1, 0, 0));
     }
     //---------------------------------------------------------------------
     bool TerrainQuadTreeNode::isRenderedAtCurrentLod() const

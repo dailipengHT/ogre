@@ -150,9 +150,7 @@ namespace Ogre {
 #if OGRE_NO_QUAD_BUFFER_STEREO == 0
 			if ((opt = miscParams->find("stereoMode")) != end)
 			{
-				StereoModeType stereoMode = StringConverter::parseStereoMode(opt->second);
-				if (SMT_NONE != stereoMode)
-					mStereoEnabled = true;
+				mStereoEnabled = StringConverter::parseBool(opt->second);
 			}
 #endif
 
@@ -401,14 +399,14 @@ namespace Ogre {
         {
             int testFsaa = mFSAA;
             bool testHwGamma = hwGamma;
-            bool formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma);
+            bool formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma, mStereoEnabled);
             if (!formatOk)
             {
                 if (mFSAA > 0)
                 {
                     // try without FSAA
                     testFsaa = 0;
-                    formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma);
+                    formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma, mStereoEnabled);
                 }
 
                 if (!formatOk && hwGamma)
@@ -416,7 +414,7 @@ namespace Ogre {
                     // try without sRGB
                     testHwGamma = false;
                     testFsaa = mFSAA;
-                    formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma);
+                    formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma, mStereoEnabled);
                 }
 
                 if (!formatOk && hwGamma && (mFSAA > 0))
@@ -424,7 +422,7 @@ namespace Ogre {
                     // try without both
                     testHwGamma = false;
                     testFsaa = 0;
-                    formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma);
+                    formatOk = mGLSupport.selectPixelFormat(mHDC, mColourDepth, testFsaa, testHwGamma, mStereoEnabled);
                 }
 
                 if (!formatOk)

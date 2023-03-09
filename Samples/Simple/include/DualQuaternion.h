@@ -25,7 +25,7 @@ class _OgreSampleClassExport Sample_DualQuaternion : public SdkSample
         mInfo["Category"] = "Animation";
     }
 
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
         const Real start = 30;
         const Real range = 145;
@@ -40,7 +40,7 @@ class _OgreSampleClassExport Sample_DualQuaternion : public SdkSample
     }
 
  protected:
-    void setupContent()
+    void setupContent() override
     {
 #if defined(INCLUDE_RTSHADER_SYSTEM) && defined(RTSHADER_SYSTEM_BUILD_EXT_SHADERS)
         // Make this viewport work with shader generator scheme.
@@ -48,7 +48,7 @@ class _OgreSampleClassExport Sample_DualQuaternion : public SdkSample
 
         // Add the hardware skinning to the shader generator default
         // render state.
-        mSrsHardwareSkinning = mShaderGenerator->createSubRenderState(Ogre::RTShader::HardwareSkinning::Type);
+        mSrsHardwareSkinning = mShaderGenerator->createSubRenderState(RTShader::SRS_HARDWARE_SKINNING);
         Ogre::RTShader::RenderState* renderState = mShaderGenerator->getRenderState(MSN_SHADERGEN);
         renderState->addTemplateSubRenderState(mSrsHardwareSkinning);
 
@@ -59,14 +59,14 @@ class _OgreSampleClassExport Sample_DualQuaternion : public SdkSample
         Ogre::MaterialPtr pCast3 = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_dq_skinning_3weight_twophase");
         Ogre::MaterialPtr pCast4 = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_dq_skinning_4weight_twophase");
 
-        Ogre::RTShader::HardwareSkinningFactory::getSingleton().setCustomShadowCasterMaterials(RTShader::ST_DUAL_QUATERNION, pCast1, pCast2, pCast3, pCast4);
+        Ogre::RTShader::HardwareSkinningFactory::setCustomShadowCasterMaterials(RTShader::ST_DUAL_QUATERNION, pCast1, pCast2, pCast3, pCast4);
 
         Ogre::MaterialPtr pCast1l = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_skinning_1weight");
         Ogre::MaterialPtr pCast2l = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_skinning_2weight");
         Ogre::MaterialPtr pCast3l = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_skinning_3weight");
         Ogre::MaterialPtr pCast4l = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_skinning_4weight");
 
-        Ogre::RTShader::HardwareSkinningFactory::getSingleton().setCustomShadowCasterMaterials(RTShader::ST_LINEAR, pCast1l, pCast2l, pCast3l, pCast4l);
+        Ogre::RTShader::HardwareSkinningFactory::setCustomShadowCasterMaterials(RTShader::ST_LINEAR, pCast1l, pCast2l, pCast3l, pCast4l);
 #endif
         // Set shadow properties.
         mSceneMgr->setShadowTechnique(SHADOWTYPE_TEXTURE_MODULATIVE);
@@ -138,8 +138,8 @@ class _OgreSampleClassExport Sample_DualQuaternion : public SdkSample
         // In case the system uses the RTSS, the following line will
         // ensure that the entity is using hardware animation in RTSS
         // as well.
-        RTShader::HardwareSkinningFactory::getSingleton().prepareEntityForSkinning(ent);
-        RTShader::HardwareSkinningFactory::getSingleton().prepareEntityForSkinning(entDQ, RTShader::ST_DUAL_QUATERNION, false, true);
+        RTShader::HardwareSkinningFactory::prepareEntityForSkinning(ent);
+        RTShader::HardwareSkinningFactory::prepareEntityForSkinning(entDQ, RTShader::ST_DUAL_QUATERNION, false, true);
 #endif
 
         // make sure we query the correct scheme
@@ -169,7 +169,7 @@ class _OgreSampleClassExport Sample_DualQuaternion : public SdkSample
         mTrayMgr->createParamsPanel(TL_TOPLEFT, "Skinning", 170, names)->setParamValue(0, value);
     }
 
-    void cleanupContent()
+    void cleanupContent() override
     {
         MeshManager::getSingleton().remove("floor", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
 

@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.10.0)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -67,7 +67,7 @@ if (APPLE AND NOT ANDROID)
   add_definitions(-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=0)
 endif ()
 
-project(OGRE VERSION 13.4.0)
+project(OGRE VERSION 14.0.0)
 
 # extra version info
 set(OGRE_VERSION_SUFFIX "")
@@ -123,11 +123,13 @@ endif ()
 
 # Set compiler specific build flags
 if (NOT ANDROID AND NOT EMSCRIPTEN AND UNIX OR MINGW)
-  include(CheckCXXCompilerFlag)
-  check_cxx_compiler_flag(-msse OGRE_GCC_HAS_SSE)
-  if (OGRE_GCC_HAS_SSE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse")
-  endif ()
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86|X86|amd64|AMD64")
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-msse OGRE_GCC_HAS_SSE)
+    if (OGRE_GCC_HAS_SSE)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse")
+    endif ()
+  endif()
 endif()
 
 if(UNIX)
@@ -137,7 +139,9 @@ if(UNIX)
       set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wno-warn-absolute-paths")
   endif ()
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wno-inconsistent-missing-override -Wno-missing-braces")
+    set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wno-missing-braces")
+  else()
+    set(OGRE_WARNING_FLAGS "${OGRE_WARNING_FLAGS} -Wsuggest-override")
   endif()
   set(CMAKE_CXX_FLAGS "${OGRE_WARNING_FLAGS} ${CMAKE_CXX_FLAGS}")
 endif ()
@@ -149,7 +153,7 @@ if (MSVC)
     # set variable to state that we are using nmake makefiles
 	set(NMAKE TRUE)
   endif ()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
+
   # Enable intrinsics on MSVC in debug mode
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Oi")
   if (CMAKE_CL_64)
@@ -166,19 +170,11 @@ if (MSVC)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
   endif()
 
-  if (MSVC_VERSION GREATER 1500 OR MSVC_VERSION EQUAL 1500)
-    option(OGRE_BUILD_MSVC_MP "Enable build with multiple processes in Visual Studio" TRUE)
-  else()
-    set(OGRE_BUILD_MSVC_MP FALSE CACHE BOOL "Compiler option /MP requires at least Visual Studio 2008 (VS9) or newer" FORCE)
-  endif()
+  option(OGRE_BUILD_MSVC_MP "Enable build with multiple processes in Visual Studio" TRUE)
   if(OGRE_BUILD_MSVC_MP)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
   endif ()
-  if(MSVC_VERSION GREATER 1400 OR MSVC_VERSION EQUAL 1400)
-    option(OGRE_BUILD_MSVC_ZM "Add /Zm256 compiler option to Visual Studio to fix PCH errors" TRUE)
-  else()
-    set(OGRE_BUILD_MSVC_ZM FALSE CACHE BOOL "Compiler option /Zm256 requires at least Visual Studio 2005 (VS8) or newer" FORCE)
-  endif()
+  option(OGRE_BUILD_MSVC_ZM "Add /Zm256 compiler option to fix PCH errors on Visual Studio 2013" TRUE)
   if(OGRE_BUILD_MSVC_ZM)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zm256")
   endif ()
@@ -245,7 +241,6 @@ if (APPLE_IOS)
 elseif (ANDROID)
   set(TargetPlatform "Android")
   set(OGRE_PLATFORM OGRE_PLATFORM_ANDROID)
-  set(OGRE_CONFIG_ENABLE_VIEWPORT_ORIENTATIONMODE FALSE CACHE BOOL "Disable viewport orientation Android" FORCE)
   option(OGRE_BUILD_ANDROID_JNI_SAMPLE "Enable JNI Sample" FALSE)
 
   set(OGRE_BUILD_RENDERSYSTEM_GLES2 TRUE CACHE BOOL "Forcing OpenGL ES 2 RenderSystem for Android" FORCE)
@@ -278,15 +273,6 @@ elseif(EMSCRIPTEN)
 
   set(OGRE_CONFIG_THREADS "0" CACHE STRING "Threading is unstable on Emscripten" FORCE)
 elseif (APPLE AND NOT APPLE_IOS)
-
-  set(XCODE_ATTRIBUTE_SDKROOT macosx)
-  if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
-    execute_process(COMMAND xcodebuild -version -sdk "${XCODE_ATTRIBUTE_SDKROOT}" Path | head -n 1 OUTPUT_VARIABLE CMAKE_OSX_SYSROOT)
-    string(REGEX REPLACE "(\r?\n)+$" "" CMAKE_OSX_SYSROOT "${CMAKE_OSX_SYSROOT}")
-  else()
-    set(CMAKE_OSX_SYSROOT macosx)
-  endif()
-
   # Make sure that the GLES2 render system is disabled for non-iOS Apple builds
   set(OGRE_BUILD_RENDERSYSTEM_GLES2 FALSE CACHE BOOL "" FORCE)
 endif ()
@@ -341,6 +327,7 @@ option(OGRE_BUILD_COMPONENT_OVERLAY "Build Overlay component" TRUE)
 cmake_dependent_option(OGRE_BUILD_COMPONENT_OVERLAY_IMGUI "Include dear imgui in Overlays" TRUE "OGRE_BUILD_COMPONENT_OVERLAY" FALSE)
 
 cmake_dependent_option(OGRE_BUILD_COMPONENT_BITES "Build OgreBites component" TRUE "OGRE_BUILD_COMPONENT_OVERLAY" FALSE)
+cmake_dependent_option(OGRE_BUILD_COMPONENT_BULLET "Build Bullet physics component" TRUE "BULLET_FOUND" FALSE)
 cmake_dependent_option(OGRE_BITES_STATIC_PLUGINS "Skip plugins.cfg and statically load plugins via OgreBites" FALSE "NOT OGRE_STATIC;OGRE_BUILD_COMPONENT_BITES" FALSE)
 cmake_dependent_option(OGRE_BUILD_COMPONENT_PYTHON "Build Python bindings" TRUE "NOT OGRE_STATIC" FALSE)
 cmake_dependent_option(OGRE_BUILD_COMPONENT_JAVA "Build Java (JNI) bindings" TRUE "NOT OGRE_STATIC OR ANDROID" FALSE)
@@ -374,6 +361,7 @@ set_property(CACHE OGRE_CONFIG_THREAD_PROVIDER PROPERTY STRINGS boost poco tbb s
 cmake_dependent_option(OGRE_BUILD_PLUGIN_FREEIMAGE "Build FreeImage codec." TRUE "FreeImage_FOUND" FALSE)
 cmake_dependent_option(OGRE_BUILD_PLUGIN_EXRCODEC "Build EXR Codec plugin" TRUE "OPENEXR_FOUND;" FALSE)
 option(OGRE_BUILD_PLUGIN_STBI "Enable STBI image codec." TRUE)
+option(OGRE_BUILD_PLUGIN_RSIMAGE "Enable image-rs codec." FALSE)
 option(OGRE_CONFIG_ENABLE_MESHLOD "Enable Mesh Lod." TRUE)
 option(OGRE_CONFIG_ENABLE_DDS "Build DDS codec." TRUE)
 option(OGRE_CONFIG_ENABLE_PVRTC "Build PVRTC codec." FALSE)
@@ -381,7 +369,6 @@ option(OGRE_CONFIG_ENABLE_ETC "Build ETC codec." TRUE)
 option(OGRE_CONFIG_ENABLE_ASTC "Build ASTC codec." TRUE)
 option(OGRE_CONFIG_ENABLE_QUAD_BUFFER_STEREO "Enable stereoscopic 3D support" FALSE)
 option(OGRE_CONFIG_ENABLE_ZIP "Build ZIP archive support. If you disable this option, you cannot use ZIP archives resource locations. The samples won't work." TRUE)
-option(OGRE_CONFIG_ENABLE_VIEWPORT_ORIENTATIONMODE "Include Viewport orientation mode support." FALSE)
 cmake_dependent_option(OGRE_CONFIG_ENABLE_GLES2_CG_SUPPORT "Enable Cg support to ES 2 render system" FALSE "OGRE_BUILD_RENDERSYSTEM_GLES2" FALSE)
 cmake_dependent_option(OGRE_CONFIG_ENABLE_GLES2_GLSL_OPTIMISER "Enable GLSL optimiser use in GLES 2 render system" FALSE "OGRE_BUILD_RENDERSYSTEM_GLES2" FALSE)
 cmake_dependent_option(OGRE_CONFIG_ENABLE_GL_STATE_CACHE_SUPPORT "Enable OpenGL state cache management" FALSE "OGRE_BUILD_RENDERSYSTEM_GL OR OGRE_BUILD_RENDERSYSTEM_GLES2 OR OGRE_BUILD_RENDERSYSTEM_GL3PLUS" FALSE)
@@ -427,7 +414,6 @@ mark_as_advanced(
   OGRE_CONFIG_ENABLE_PVRTC
   OGRE_CONFIG_ENABLE_ETC
   OGRE_CONFIG_ENABLE_ASTC
-  OGRE_CONFIG_ENABLE_VIEWPORT_ORIENTATIONMODE
   OGRE_CONFIG_ENABLE_ZIP
   OGRE_CONFIG_ENABLE_GL_STATE_CACHE_SUPPORT
   OGRE_CONFIG_ENABLE_GLES2_CG_SUPPORT

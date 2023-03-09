@@ -95,7 +95,7 @@ namespace Ogre
         void addIndexData(IndexData* i_in, RenderOperation::OperationType opType = RenderOperation::OT_TRIANGLE_LIST);
 
         /** Sets whether to store tangent space parity in the W of a 4-component tangent or not.
-        @remarks
+
             The default element format to use is VET_FLOAT3 which is enough to accurately 
             deal with tangents that do not involve any texture coordinate mirroring. 
             If you wish to allow UV mirroring in your model, you must enable 4-component
@@ -113,7 +113,7 @@ namespace Ogre
 
         /** Sets whether or not to split vertices when a mirrored tangent space
             transition is detected (matrix parity differs).
-        @remarks
+
             This defaults to 'off' because it's the safest option; tangents will be
             interpolated in all cases even if they don't agree around a vertex, so
             artefacts will be smoothed out. When you're using art assets of 
@@ -134,7 +134,7 @@ namespace Ogre
 
         /** Sets whether or not to split vertices when tangent space rotates
             more than 90 degrees around a vertex.
-        @remarks
+
             This defaults to 'off' because it's the safest option; tangents will be
             interpolated in all cases even if they don't agree around a vertex, so
             artefacts will be smoothed out. When you're using art assets of 
@@ -153,19 +153,12 @@ namespace Ogre
         bool getSplitRotated() const { return mSplitRotated; }
 
         /** Build a tangent space basis from the provided data.
-        @remarks
+
             Only indexed triangle lists are allowed. Strips and fans cannot be
             supported because it may be necessary to split the geometry up to 
             respect deviances in the tangent space basis better.
-        @param targetSemantic The semantic to store the tangents in. Defaults to 
-            the explicit tangent binding, but note that this is only usable on more
-            modern hardware (Shader Model 2), so if you need portability with older
-            cards you should change this to a texture coordinate binding instead.
         @param sourceTexCoordSet The texture coordinate index which should be used as the source
             of 2D texture coordinates, with which to calculate the tangents.
-        @param index The element index, ie the texture coordinate set which should be used to store the 3D
-            coordinates representing a tangent vector per vertex, if targetSemantic is 
-            VES_TEXTURE_COORDINATES. If this already exists, it will be overwritten.
         @return
             A structure containing the results of the tangent space build. Vertex data
             will always be modified but it's also possible that the index data
@@ -174,9 +167,14 @@ namespace Ogre
             This is discontinuous, therefore the vertices have to be split along
             this edge, resulting in new vertices.
         */
-        Result build(VertexElementSemantic targetSemantic = VES_TANGENT,
-            unsigned short sourceTexCoordSet = 0, unsigned short index = 1);
+        Result build(unsigned short sourceTexCoordSet = 0);
 
+        OGRE_DEPRECATED Result build(VertexElementSemantic targetSemantic, unsigned short sourceTexCoordSet = 0,
+                                     unsigned short index = 0)
+        {
+            OgreAssert(targetSemantic == VES_TANGENT && index == 0, "Invalid Parameters");
+            return build(sourceTexCoordSet);
+        }
 
     private:
 
@@ -226,11 +224,8 @@ namespace Ogre
         template <typename T>
         void remapIndexes(T* ibuf, size_t indexSet, Result& res)
         {
-            for (IndexRemapList::iterator i = res.indexesRemapped.begin();
-                i != res.indexesRemapped.end(); ++i)
+            for (auto & remap : res.indexesRemapped)
             {
-                IndexRemap& remap = *i;
-
                 // Note that because this is a vertex split situation, and vertex
                 // split is only for some faces, it's not a case of replacing all
                 // instances of vertex index A with vertex index B

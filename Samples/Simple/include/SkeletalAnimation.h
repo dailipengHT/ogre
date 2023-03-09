@@ -81,7 +81,7 @@ public:
             mStatusPanel->setParamValue(mBoneBoundingBoxesItemName, mBoneBoundingBoxes ? "On" : "Off");
         }
     }
-    bool keyPressed(const KeyboardEvent& evt)
+    bool keyPressed(const KeyboardEvent& evt) override
     {   
         if ( !mTrayMgr->isDialogVisible() )
         {
@@ -119,7 +119,7 @@ public:
         return SdkSample::keyPressed(evt);
     }
 
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
         for (int i = 0; i < NUM_MODELS; i++)
         {
@@ -148,7 +148,7 @@ public:
 
 protected:
 
-    void setupContent()
+    void setupContent() override
     {
 
 #if defined(INCLUDE_RTSHADER_SYSTEM) && defined(RTSHADER_SYSTEM_BUILD_EXT_SHADERS)
@@ -157,7 +157,7 @@ protected:
         mViewport->setMaterialScheme(MSN_SHADERGEN);
 
         //Add the hardware skinning to the shader generator default render state
-        mSrsHardwareSkinning = mShaderGenerator->createSubRenderState<RTShader::HardwareSkinning>();
+        mSrsHardwareSkinning = mShaderGenerator->createSubRenderState(RTShader::SRS_HARDWARE_SKINNING);
         Ogre::RTShader::RenderState* renderState = mShaderGenerator->getRenderState(MSN_SHADERGEN);
         renderState->addTemplateSubRenderState(mSrsHardwareSkinning);
 
@@ -166,8 +166,8 @@ protected:
         Ogre::MaterialPtr pCast3 = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_dq_skinning_3weight");
         Ogre::MaterialPtr pCast4 = Ogre::MaterialManager::getSingleton().getByName("Ogre/RTShader/shadow_caster_dq_skinning_4weight");
 
-        Ogre::RTShader::HardwareSkinningFactory::getSingleton().setCustomShadowCasterMaterials(
-            Ogre::RTShader::ST_DUAL_QUATERNION, pCast1, pCast2, pCast3, pCast4);
+        Ogre::RTShader::HardwareSkinningFactory::setCustomShadowCasterMaterials(Ogre::RTShader::ST_DUAL_QUATERNION,
+                                                                                pCast1, pCast2, pCast3, pCast4);
 #endif
         // set shadow properties
         mSceneMgr->setShadowTechnique(SHADOWTYPE_TEXTURE_MODULATIVE);
@@ -344,7 +344,7 @@ protected:
         }
     }
 
-    void cleanupContent()
+    void cleanupContent() override
     {
         mModelNodes.clear();
         mAnimStates.clear();

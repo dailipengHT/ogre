@@ -447,10 +447,11 @@ namespace Ogre
         auto texMgr = TextureManager::getSingletonPtr();
         mTexture = new VulkanTextureGpuWindow("RenderWindow", TEX_TYPE_2D, texMgr, this);;
         mTexture->setFormat(chooseSurfaceFormat(mHwGamma));
+        mTexture->setHardwareGammaEnabled(mHwGamma);
         mTexture->setFSAA(mFSAA, "");
 
         mDepthTexture = new VulkanTextureGpu(texMgr, "RenderWindow DepthBuffer", 0, "", true, 0);
-        mDepthTexture->setFormat(PF_DEPTH24_STENCIL8);
+        mDepthTexture->setFormat(PF_DEPTH32);
         mDepthTexture->setFSAA(mFSAA, "");
 #if 0
         mStencilBuffer = 0;

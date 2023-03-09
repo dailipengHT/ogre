@@ -4,8 +4,6 @@ using namespace Ogre;
 using namespace OgreBites;
 
 #include "OgreLodConfigSerializer.h"
-#include "OgreLodWorkQueueInjector.h"
-#include "OgreLodWorkQueueWorker.h"
 #include "OgreMeshLodGenerator.h"
 #include "OgreLodCollapseCostQuadric.h"
 #include "OgreLodInputProviderMesh.h"
@@ -48,8 +46,7 @@ void Sample_MeshLod::setupContent()
     if(!MeshLodGenerator::getSingletonPtr()) {
         new MeshLodGenerator();
     }
-    MeshLodGenerator::getSingleton()._initWorkQueue(); // needed only for LodWorkQueueInjector::setInjectorListener
-    LodWorkQueueInjector::getSingleton().setInjectorListener(this);
+    MeshLodGenerator::getSingleton().setInjectorListener(this);
 
     // setup gui
     setupControls();
@@ -60,7 +57,7 @@ void Sample_MeshLod::setupContent()
 
 void Sample_MeshLod::cleanupContent()
 {
-    Ogre::LodWorkQueueInjector::getSingleton().removeInjectorListener();
+    MeshLodGenerator::getSingleton().removeInjectorListener();
     if(mMeshEntity){
         mSceneMgr->destroyEntity(mMeshEntity);
         mMeshEntity = 0;
@@ -220,13 +217,13 @@ bool Sample_MeshLod::loadConfig()
     lcs.importLodConfig(&mLodConfig, filename);
 
     mLodLevelList->clearItems();
-    for(size_t i = 0; i < mLodConfig.levels.size(); i++){
-        mLodLevelList->addItem(StringConverter::toString(mLodConfig.levels[i].distance) + "px");
+    for(auto & level : mLodConfig.levels){
+        mLodLevelList->addItem(StringConverter::toString(level.distance) + "px");
     }
 
     mProfileList->clearItems();
-    for(size_t i = 0; i < mLodConfig.advanced.profile.size(); i++){
-        mProfileList->addItem(StringConverter::toString(mLodConfig.advanced.profile[i].src));
+    for(auto & i : mLodConfig.advanced.profile){
+        mProfileList->addItem(StringConverter::toString(i.src));
     }
 
     mUseVertexNormals->setChecked(mLodConfig.advanced.useVertexNormals, false);
@@ -246,7 +243,7 @@ void Sample_MeshLod::saveConfig()
 void Sample_MeshLod::loadAutomaticLod()
 {
     // Remove outdated Lod requests to reduce delay.
-    LodWorkQueueWorker::getSingleton().clearPendingLodRequests();
+    MeshLodGenerator::getSingleton().clearPendingLodRequests();
 
     MeshLodGenerator& gen = MeshLodGenerator::getSingleton();
     //gen.generateAutoconfiguredLodLevels(mLodConfig.mesh);
@@ -270,7 +267,7 @@ void Sample_MeshLod::loadUserLod( bool useWorkLod )
     }
     mTrayMgr->destroyAllWidgetsInTray(TL_TOP);
     // Remove outdated Lod requests to reduce delay.
-    LodWorkQueueWorker::getSingleton().clearPendingLodRequests();
+    MeshLodGenerator::getSingleton().clearPendingLodRequests();
 
     MeshLodGenerator& gen = MeshLodGenerator::getSingleton();
     mLodConfig.advanced.useBackgroundQueue = ENABLE_THREADING;
@@ -597,7 +594,7 @@ void Sample_MeshLod::buttonHit( OgreBites::Button* button )
         //mTrayMgr->showOkDialog("Success", "Showing mesh from: " + filename);
     } else if(button->getName() == "btnSaveMesh") {
         if(!mTrayMgr->getTrayContainer(TL_TOP)->isVisible() && !mLodConfig.levels.empty()){
-            LodWorkQueueWorker::getSingleton().clearPendingLodRequests();
+            MeshLodGenerator::getSingleton().clearPendingLodRequests();
             MeshLodGenerator& gen = MeshLodGenerator::getSingleton();
             mLodConfig.advanced.useBackgroundQueue = false; // Non-threaded
             gen.generateLodLevels(mLodConfig);
@@ -610,7 +607,7 @@ void Sample_MeshLod::buttonHit( OgreBites::Button* button )
             if(!FileSystemLayer::fileExists(filename + ".orig"))
                 FileSystemLayer::renameFile(filename, filename + ".orig");
             MeshSerializer ms;
-            ms.exportMesh(mLodConfig.mesh.get(), filename);
+            ms.exportMesh(mLodConfig.mesh, filename);
             mTrayMgr->showOkDialog("Success", "Mesh saved to: " + filename);
         }
         if(!mTrayMgr->getTrayContainer(TL_TOP)->isVisible()){

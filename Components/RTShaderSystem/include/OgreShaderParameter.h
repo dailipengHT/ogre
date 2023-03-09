@@ -375,6 +375,13 @@ public:
     void setUsed(bool used) { mUsed = used; }
     bool isUsed() { return mUsed; }
 
+    /// Is highp needed when using GLSL ES
+    bool isHighP() const { return mIsHighP; }
+    void setHighP(bool highP) { mIsHighP = highP; }
+
+    const String& getStructType() const { return mStructType; }
+    void setStructType(const String& structType) { mStructType = structType; }
+
 // Attributes.
 protected:
     // Name of this parameter.
@@ -385,6 +392,10 @@ protected:
 
     // Type of this parameter.
     GpuConstantType mType;
+
+    // Type, if this is a struct
+    String mStructType;
+
     // Semantic of this parameter.
     Semantic mSemantic;
     // Index of this parameter.
@@ -395,6 +406,7 @@ protected:
     size_t mSize;
     
     bool mUsed;
+    bool mIsHighP;
 };
 
 typedef ShaderParameterList::iterator           ShaderParameterIterator;
@@ -452,7 +464,7 @@ public:
 
     
     /** Get auto constant int data of this parameter, in case it is auto constant parameter. */
-    uint32 getAutoConstantIntData() const { return mAutoConstantIntData; }
+    uint32 getAutoConstantIntData() const { return isArray() ? getSize() : mAutoConstantIntData; }
 
     /** Get auto constant real data of this parameter, in case it is auto constant parameter. */
     float getAutoConstantRealData() const { return mAutoConstantRealData; }
@@ -648,12 +660,12 @@ public:
     /** 
     @see Parameter::isConstParameter.
     */
-    virtual bool isConstParameter() const { return true; }
+    bool isConstParameter() const override { return true; }
 
     /** 
     @see Parameter::toString.
     */
-    virtual String toString() const = 0;
+    String toString() const override = 0;
 
 protected:
     valueType mValue;

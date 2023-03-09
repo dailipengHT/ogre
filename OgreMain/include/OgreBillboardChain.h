@@ -49,7 +49,7 @@ namespace Ogre {
     */
 
     /** Allows the rendering of a chain of connected billboards.
-    @remarks
+
         A billboard chain operates much like a traditional billboard, i.e. its
         segments always face the camera; the difference being that instead of
         a set of disconnected quads, the elements in this class are connected
@@ -85,25 +85,19 @@ namespace Ogre {
         {
 
         public:
+            Element() {}
 
-            Element();
-
-            Element(const Vector3 &position,
-                Real width,
-                Real texCoord,
-                const ColourValue &colour,
-                const Quaternion &orientation);
+            Element(const Vector3& position, float width, float texCoord, const ColourValue& colour,
+                    const Quaternion& orientation);
 
             Vector3 position;
-            Real width;
+            float width;
             /// U or V texture coord depending on options
-            Real texCoord;
+            float texCoord;
             ColourValue colour;
-
             /// Only used when mFaceCamera == false
             Quaternion orientation;
         };
-        typedef std::vector<Element> ElementList;
 
         /** Constructor (don't use directly, use factory) 
         @param name The name to give this object
@@ -188,18 +182,17 @@ namespace Ogre {
         */
         virtual bool getUseVertexColours(void) const { return mUseVertexColour; }
 
-        /** Sets whether or not the buffers created for this object are suitable
-            for dynamic alteration.
-        */
-        virtual void setDynamic(bool dyn);
+        /** Set the auto update state
 
-        /** Gets whether or not the buffers created for this object are suitable
-            for dynamic alteration.
+            @copydetails BillboardSet::setAutoUpdate
         */
-        virtual bool getDynamic(void) const { return mDynamic; }
+        void setAutoUpdate(bool autoUpdate);
+
+        /** Return the auto update state */
+        bool getAutoUpdate(void) const { return mAutoUpdate; }
         
         /** Add an element to the 'head' of a chain.
-        @remarks
+
             If this causes the number of elements to exceed the maximum elements
             per chain, the last element in the chain (the 'tail') will be removed
             to allow the additional element to be added.
@@ -237,7 +230,7 @@ namespace Ogre {
 
         /** Sets whether the billboard should always be facing the camera or a custom direction
             set by each point element.
-        @remarks
+
             Billboards facing the camera are useful for smoke trails, light beams, etc by
             simulating a cylinder. However, because of this property, wide trails can cause
             several artefacts unless the head is properly covered.
@@ -260,38 +253,34 @@ namespace Ogre {
 
 
         // Overridden members follow
-        Real getSquaredViewDepth(const Camera* cam) const;
-        Real getBoundingRadius(void) const;
-        const AxisAlignedBox& getBoundingBox(void) const;
-        const MaterialPtr& getMaterial(void) const;
-        const String& getMovableType(void) const;
-        void _updateRenderQueue(RenderQueue *);
-        void getRenderOperation(RenderOperation &);
-        virtual bool preRender(SceneManager* sm, RenderSystem* rsys);
-        void getWorldTransforms(Matrix4 *) const;
-        const LightList& getLights(void) const;
+        Real getSquaredViewDepth(const Camera* cam) const override;
+        Real getBoundingRadius(void) const override;
+        const AxisAlignedBox& getBoundingBox(void) const override;
+        const MaterialPtr& getMaterial(void) const override;
+        const String& getMovableType(void) const override;
+        void _updateRenderQueue(RenderQueue *) override;
+        void getRenderOperation(RenderOperation &) override;
+        bool preRender(SceneManager* sm, RenderSystem* rsys) override;
+        void getWorldTransforms(Matrix4 *) const override;
+        const LightList& getLights(void) const override;
         /// @copydoc MovableObject::visitRenderables
         void visitRenderables(Renderable::Visitor* visitor, 
-            bool debugRenderables = false);
+            bool debugRenderables = false) override;
 
 
 
     protected:
 
         /// Maximum length of each chain
-        size_t mMaxElementsPerChain;
+        uint32 mMaxElementsPerChain;
         /// Number of chains
-        size_t mChainCount;
+        uint32 mChainCount;
         /// Use texture coords?
         bool mUseTexCoords;
         /// Use vertex colour?
         bool mUseVertexColour;
-        /// Dynamic use?
-        bool mDynamic;
-        /// Vertex data
-        std::unique_ptr<VertexData> mVertexData;
-        /// Index data (to allow multiple unconnected chains)
-        std::unique_ptr<IndexData> mIndexData;
+        /// Tell if vertex buffer should be update automatically.
+        bool mAutoUpdate;
         /// Is the vertex declaration dirty?
         bool mVertexDeclDirty;
         /// Do the buffers need recreating?
@@ -312,16 +301,10 @@ namespace Ogre {
         TexCoordDirection mTexCoordDir;
         /// Other texture coord range
         Real mOtherTexCoordRange[2];
-        /// Camera last used to build the vertex buffer
-        Camera *mVertexCameraUsed;
         /// When true, the billboards always face the camera
         bool mFaceCamera;
-        /// Used when mFaceCamera == false; determines the billboard's "normal". i.e.
-        /// when the orientation is identity, the billboard is perpendicular to this
-        /// vector
-        Vector3 mNormalBase;
 
-
+        typedef std::vector<Element> ElementList;
         /// The list holding the chain elements
         ElementList mChainElementList;
 
@@ -344,6 +327,20 @@ namespace Ogre {
         typedef std::vector<ChainSegment> ChainSegmentList;
         ChainSegmentList mChainSegmentList;
 
+        /// Chain segment has no elements
+        static const size_t SEGMENT_EMPTY;
+    private:
+        /// Used when mFaceCamera == false; determines the billboard's "normal". i.e.
+        /// when the orientation is identity, the billboard is perpendicular to this
+        /// vector
+        Vector3 mNormalBase;
+        /// Camera last used to build the vertex buffer
+        Camera *mVertexCameraUsed;
+        /// Vertex data
+        std::unique_ptr<VertexData> mVertexData;
+        /// Index data (to allow multiple unconnected chains)
+        std::unique_ptr<IndexData> mIndexData;
+
         /// Setup the STL collections
         virtual void setupChainContainers(void);
         /// Setup vertex declaration
@@ -355,26 +352,7 @@ namespace Ogre {
         /// Update the contents of the index buffer
         virtual void updateIndexBuffer(void);
         virtual void updateBoundingBox(void) const;
-
-        /// Chain segment has no elements
-        static const size_t SEGMENT_EMPTY;
     };
-
-
-    /** Factory object for creating BillboardChain instances */
-    class _OgreExport BillboardChainFactory : public MovableObjectFactory
-    {
-    private:
-        MovableObject* createInstanceImpl( const String& name, const NameValuePairList* params);
-    public:
-        BillboardChainFactory() {}
-        ~BillboardChainFactory() {}
-
-        static String FACTORY_TYPE_NAME;
-
-        const String& getType(void) const;
-    };
-
     /** @} */
     /** @} */
 

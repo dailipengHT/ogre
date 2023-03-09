@@ -1,4 +1,5 @@
 [![GitHub release](https://img.shields.io/github/release/ogrecave/ogre.svg)](https://github.com/OGRECave/ogre/releases/latest)
+[![Downloads](https://static.pepy.tech/badge/ogre-python)](https://pepy.tech/project/ogre-python)
 [![Join the chat at https://gitter.im/OGRECave/ogre](https://badges.gitter.im/OGRECave/ogre.svg)](https://gitter.im/OGRECave/ogre?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Patreon](https://img.shields.io/badge/patreon-donate-blue.svg)](https://www.patreon.com/ogre1)
 
@@ -39,10 +40,13 @@ A gold mine of tutorials, tips and code snippets which will help you get up to s
 
 For an exhaustive list, see the [features page](http://www.ogre3d.org/about/features) and try our Sample Browser. For a quick overview see below
 
-| Integrated Bump Mapping | Integrated shadows |
+| Integrated Bump and Offset Mapping | Integrated shadows |
 |----|----|
-| ![](Other/screenshots/bumpmap.jpg) | ![](Other/screenshots/shadows.jpg) |
+| ![](Other/screenshots/bumpmap.webp) | ![](Other/screenshots/shadows.jpg) |
 
+| Physically Based Shading | Particle Effects |
+|----|----|
+| ![](Other/screenshots/pbr.webp) | ![](Other/screenshots/particle.jpg) |
 
 | HW & SW skeletal animation | Multi-layer Terrain |
 |----|----|
@@ -52,13 +56,14 @@ For an exhaustive list, see the [features page](http://www.ogre3d.org/about/feat
 |----|----|
 | ![](Other/screenshots/compositor.jpg) | ![](Other/screenshots/volume.jpg) |
 
-| [Dear ImGui](https://github.com/ocornut/imgui) | Particle Effects |
+| [Dear ImGui](https://github.com/ocornut/imgui) | [Bullet Physics](https://pybullet.org/) Integration |
 |----|----|
-| ![](Other/screenshots/imgui.jpg) | ![](Other/screenshots/particle.jpg) |
+| ![](Other/screenshots/imgui.jpg) | ![](Other/screenshots/bullet.webp) |
 
 ## Who is using it?
 
 **Open Source**
+- [Stunt Rally - 3D Racing Game with Track Editor](https://stuntrally.tuxfamily.org/)
 - [Rigs of Rods - Soft Body Physics Simulator](https://rigsofrods.org/)
 - [Gazebo - Robot simulation](http://gazebosim.org/)
 - [OpenCV OVIS visualization module](https://docs.opencv.org/master/d2/d17/group__ovis.html)

@@ -46,7 +46,7 @@ namespace Ogre
 
 
     /** A node in a quad tree used to store a patch of terrain.
-    @remarks
+
         <b>Algorithm overview:</b>
     @par
         Our goal is to perform traditional chunked LOD with geomorphing. But, 
@@ -155,7 +155,7 @@ namespace Ogre
         const LodLevel* getLodLevel(uint16 lod);
 
         /** Notify the node (and children) that deltas are going to be calculated for a given range.
-        @remarks
+
             Based on this call, we can know whether or not to reset the max height.
         */
         void preDeltaCalculation(const Rect& rect);
@@ -222,10 +222,10 @@ namespace Ogre
         bool pointIntersectsNode(long x, long y);
 
         /// Get the AABB (local coords) of this node
-        const AxisAlignedBox& getBoundingBox(void) const { return mAABB; }
+        const AxisAlignedBox& getBoundingBox(void) const override { return mAABB; }
 
         /// Get the bounding radius of this node
-        Real getBoundingRadius() const;
+        Real getBoundingRadius() const override;
         /// Get the local centre of this node, relative to parent terrain centre
         const Vector3& getLocalCentre() const { return mLocalCentre; }
         /// Get the minimum height of the node
@@ -307,7 +307,7 @@ namespace Ogre
         VertexDataRecord* mVertexDataRecord;
 
         /** MovableObject implementation to provide the hook to the scene.
-        @remarks
+
             In one sense, it would be most convenient to have a single MovableObject
             to represent the whole Terrain object, and then internally perform
             some quadtree frustum culling to narrow down which specific tiles are rendered.
@@ -330,8 +330,8 @@ namespace Ogre
         // actual implementation of MovableObject methods
         bool isVisible(void) const override;
         const String& getMovableType(void) const override;
-        void _updateRenderQueue(RenderQueue* queue);
-        void visitRenderables(Renderable::Visitor* visitor,  bool debugRenderables = false);
+        void _updateRenderQueue(RenderQueue* queue) override;
+        void visitRenderables(Renderable::Visitor* visitor,  bool debugRenderables = false) override;
         // actual implementations of Renderable methods
         const MaterialPtr& getMaterial(void) const override;
         Technique* getTechnique(void) const override;
@@ -349,7 +349,7 @@ namespace Ogre
         /* Update the vertex buffers - the rect in question is relative to the whole terrain, 
             not the local vertex data (which may use a subset)
         */
-        void updateVertexBuffer(HardwareVertexBufferSharedPtr& posbuf, HardwareVertexBufferSharedPtr& deltabuf, const Rect& rect);
+        void updateVertexBuffer(const HardwareVertexBufferPtr& posbuf, const HardwareVertexBufferPtr& deltabuf, const Rect& rect);
         void destroyCpuVertexData();
 
         void createGpuVertexData();

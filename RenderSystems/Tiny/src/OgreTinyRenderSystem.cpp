@@ -91,18 +91,6 @@ namespace Ogre {
         static String strName("Tiny Rendering Subsystem");
         return strName;
     }
-    void TinyRenderSystem::initConfigOptions()
-    {
-        RenderSystem::initConfigOptions();
-
-        ConfigOption opt;
-        opt.name = "Video Mode";
-        opt.immutable = false;
-        opt.possibleValues.push_back("800 x 600");
-        opt.currentValue = opt.possibleValues[0];
-
-        mOptions[opt.name] = opt;
-    }
     RenderSystemCapabilities* TinyRenderSystem::createRenderSystemCapabilities() const
     {
         RenderSystemCapabilities* rsc = OGRE_NEW RenderSystemCapabilities();
@@ -144,12 +132,6 @@ namespace Ogre {
 
     void TinyRenderSystem::initialiseFromRenderSystemCapabilities(RenderSystemCapabilities* caps, RenderTarget* primary)
     {
-        if (caps->getRenderSystemName() != getName())
-        {
-            OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS,
-                        "Trying to initialize TinyRenderSystem from RenderSystemCapabilities that do not support Tiny");
-        }
-
         // Use VBO's by default
         mHardwareBufferManager = new DefaultHardwareBufferManager();
 

@@ -4,12 +4,7 @@
 // This code is in the public domain. You may do whatever you want with it.
 
 // based on "Advanced Depth of Field" by "Thorsten Scheuermann"
-#define USE_OGRE_FROM_FUTURE
 #include <OgreUnifiedShader.h>
-
-#ifdef GL_ES
-precision highp float; // for accumulation
-#endif
 
 #define NUM_TAPS 12						// number of taps the shader will use
 
@@ -22,7 +17,7 @@ SAMPLER2D(blur,  2);				// downsampled and blurred image
 // dofParams coefficients:
 // x = near blur depth; y = focal plane depth; z = far blur depth
 // w = blurriness cutoff constant
-STATIC vec4 dofParams = vec4(0.9991, 0.9985, 0.9975, 1);
+STATIC f32vec4 dofParams = vec4(0.9991, 0.9985, 0.9975, 1);
 
 float getBlurAmount(float depth)
 {

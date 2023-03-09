@@ -69,7 +69,7 @@ public:
 
 protected:
     
-    void cleanupContent(void)
+    void cleanupContent(void) override
     {
         delete mSystem;
     }
@@ -92,13 +92,13 @@ protected:
         mDisplayModeMenu->addItem("Debug depth / specular");
     }
     
-    void itemSelected(SelectMenu* menu)
+    void itemSelected(SelectMenu* menu) override
     {
         //Options are aligned with the mode enum
         mSystem->setMode((DeferredShadingSystem::DSMode)menu->getSelectionIndex());
     }
     
-    void checkBoxToggled(CheckBox* box)
+    void checkBoxToggled(CheckBox* box) override
     {
         if (box->getName() == "SSAO")
         {
@@ -133,12 +133,9 @@ protected:
     void createAtheneScene(SceneNode* rootNode)
     {
         // Prepare athene mesh for normalmapping
-        MeshPtr pAthene = MeshManager::getSingleton().load("athene.mesh", 
-                                                           ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
-        unsigned short src, dest;
-        if (!pAthene->suggestTangentVectorBuildParams(VES_TANGENT, src, dest))
-            pAthene->buildTangentVectors(VES_TANGENT, src, dest);
-        
+        MeshPtr pAthene = MeshManager::getSingleton().load("athene.mesh", RGN_DEFAULT);
+        pAthene->buildTangentVectors();
+
         //Create an athena statue
         Entity* athena = mSceneMgr->createEntity("Athena", "athene.mesh");
         athena->setMaterialName("DeferredDemo/DeferredAthena");
@@ -154,12 +151,9 @@ protected:
     void createKnotScene(SceneNode* rootNode)
     {
         // Prepare knot mesh for normal mapping
-        MeshPtr pKnot = MeshManager::getSingleton().load("knot.mesh", 
-                                                         ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
-        unsigned short src, dest;
-        if (!pKnot->suggestTangentVectorBuildParams(VES_TANGENT, src, dest))
-            pKnot->buildTangentVectors(VES_TANGENT, src, dest);
-        
+        MeshPtr pKnot = MeshManager::getSingleton().load("knot.mesh", RGN_DEFAULT);
+        pKnot->buildTangentVectors();
+
         // Create a bunch of knots with spotlights hanging from above
         Entity* knotEnt = mSceneMgr->createEntity("Knot", "knot.mesh");
         knotEnt->setMaterialName("DeferredDemo/RockWall");
@@ -225,7 +219,7 @@ protected:
         
     }
 
-    void testCapabilities(const RenderSystemCapabilities* caps)
+    void testCapabilities(const RenderSystemCapabilities* caps) override
     {
         if (caps->getNumMultiRenderTargets()<2)
         {
@@ -238,7 +232,7 @@ protected:
     }
 
     // Just override the mandatory create scene method
-    void setupContent(void)
+    void setupContent(void) override
     {
         mCameraMan->setTopSpeed(20.0);
         mSystem = 0;

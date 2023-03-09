@@ -39,7 +39,7 @@ String BASIC_ROCKWALL_MATERIAL("Examples/Rockwall");
 String BASIC_ATHENE_MATERIAL("Examples/Athene/NormalMapped");
 
 /** This class 'wibbles' the light and billboard */
-class LightWibbler : public ControllerValue<Real>
+class LightWibbler : public ControllerValue<float>
 {
 protected:
     Light* mLight;
@@ -48,7 +48,7 @@ protected:
     ColourValue mMinColour;
     Real mMinSize;
     Real mSizeRange;
-    Real intensity;
+    float intensity;
 public:
     LightWibbler(Light* light, Billboard* billboard, const ColourValue& minColour, 
         const ColourValue& maxColour, Real minSize, Real maxSize)
@@ -62,12 +62,12 @@ public:
         
     }
 
-    virtual Real  getValue (void) const
+    float  getValue (void) const override
     {
         return intensity;
     }
 
-    virtual void  setValue (Real value)
+    void  setValue (float value) override
     {
         intensity = value;
 
@@ -77,7 +77,7 @@ public:
         mLight->setDiffuseColour(newColour);
         mBillboard->setColour(newColour);
         // set billboard size
-        Real newSize = mMinSize + (intensity * mSizeRange);
+        float newSize = mMinSize + (intensity * mSizeRange);
         mBillboard->setDimensions(newSize, newSize);
     }
 };
@@ -99,7 +99,7 @@ protected:
     ColourValue mMaxLightColour;
     Real mMinFlareSize;
     Real mMaxFlareSize;
-    Controller<Real>* mController;
+    ControllerFloat* mController;
 
     enum ShadowProjection
     {
@@ -144,7 +144,7 @@ public:
 protected:
     
     // Just override the mandatory create scene method
-    void setupContent(void)
+    void setupContent(void) override
     {
         mCameraMan->setStyle(CS_ORBIT);
         mCameraMan->setYawPitchDist(Degree(0), Degree(45), 400);
@@ -245,13 +245,8 @@ protected:
         mLightNode->setAutoTracking(true, mSceneMgr->getRootSceneNode());
 
         // Prepare athene mesh for normalmapping
-        MeshPtr pAthene = MeshManager::getSingleton().load("athene.mesh", 
-            ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
-        unsigned short src, dest;
-        if (!pAthene->suggestTangentVectorBuildParams(VES_TANGENT, src, dest))
-        {
-            pAthene->buildTangentVectors(VES_TANGENT, src, dest);
-        }
+        MeshPtr pAthene = MeshManager::getSingleton().load("athene.mesh", RGN_DEFAULT);
+        pAthene->buildTangentVectors();
 
         SceneNode* node;
         node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
@@ -299,7 +294,7 @@ protected:
         setupGUI();
     }
 
-    virtual void setupView()
+    void setupView() override
     {
         SdkSample::setupView();
 
@@ -307,7 +302,7 @@ protected:
         mCamera->setFarClipDistance(100000);
     }
     
-    virtual void cleanupContent()
+    void cleanupContent() override
     {
         ControllerManager::getSingleton().destroyController(mController);
 
@@ -434,7 +429,7 @@ protected:
         }
     }
 
-    void itemSelected(SelectMenu* menu)
+    void itemSelected(SelectMenu* menu) override
     {
         if (menu == mTechniqueMenu) handleShadowTypeChanged();
         else if (menu == mLightingMenu) handleShadowTypeChanged();
@@ -512,7 +507,7 @@ protected:
         pass->setDepthBias(-mFixedBiasSlider->getValue(), -mSlopedBiasSlider->getValue());
     }
 
-    void sliderMoved(Slider* slider)
+    void sliderMoved(Slider* slider) override
     {
         updateDepthShadowParams();
     }

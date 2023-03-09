@@ -30,7 +30,6 @@ THE SOFTWARE.
 
 #define SGX_LIB_INTEGRATEDPSSM                      "SGXLib_IntegratedPSSM"
 #define SGX_FUNC_COMPUTE_SHADOW_COLOUR3             "SGX_ComputeShadowFactor_PSSM3"
-#define SGX_FUNC_APPLYSHADOWFACTOR_DIFFUSE          "SGX_ApplyShadowFactor_Diffuse"
 
 namespace Ogre {
 namespace RTShader {
@@ -39,6 +38,7 @@ namespace RTShader {
 /*                                                                      */
 /************************************************************************/
 String IntegratedPSSM3::Type = "SGX_IntegratedPSSM3";
+const String SRS_INTEGRATED_PSSM3 = "SGX_IntegratedPSSM3";
 
 //-----------------------------------------------------------------------
 IntegratedPSSM3::IntegratedPSSM3()
@@ -52,16 +52,9 @@ IntegratedPSSM3::IntegratedPSSM3()
 }
 
 //-----------------------------------------------------------------------
-const String& IntegratedPSSM3::getType() const
-{
-    return Type;
-}
-
-
-//-----------------------------------------------------------------------
 int IntegratedPSSM3::getExecutionOrder() const
 {
-    return FFP_TEXTURING + 1;
+    return FFP_LIGHTING - 1;
 }
 
 //-----------------------------------------------------------------------
@@ -185,6 +178,22 @@ bool IntegratedPSSM3::setParameter(const String& name, const String& value)
     return false;
 }
 
+void IntegratedPSSM3::setParameter(const String& name, const Any& value)
+{
+    if(name == "split_points")
+    {
+        setSplitPoints(any_cast<SplitPointList>(value));
+        return;
+    }
+    else if (name == "debug")
+    {
+        mDebug = any_cast<bool>(value);
+        return;
+    }
+
+    SubRenderState::setParameter(name, value);
+}
+
 //-----------------------------------------------------------------------
 bool IntegratedPSSM3::resolveParameters(ProgramSet* programSet)
 {
@@ -208,32 +217,12 @@ bool IntegratedPSSM3::resolveParameters(ProgramSet* programSet)
 
     // Resolve input depth parameter.
     mPSInDepth = psMain->resolveInputParameter(mVSOutPos);
-    
-    // Get in/local diffuse parameter.
-    mPSDiffuse = psMain->getInputParameter(Parameter::SPC_COLOR_DIFFUSE);
-    if (mPSDiffuse.get() == NULL)   
-    {
-        mPSDiffuse = psMain->getLocalParameter(Parameter::SPC_COLOR_DIFFUSE);
-    }
-    
-    // Resolve output diffuse parameter.
-    mPSOutDiffuse = psMain->resolveOutputParameter(Parameter::SPC_COLOR_DIFFUSE);
-    
-    // Get in/local specular parameter.
-    mPSSpecualr = psMain->getInputParameter(Parameter::SPC_COLOR_SPECULAR);
-    if (mPSSpecualr.get() == NULL)  
-    {
-        mPSSpecualr = psMain->getLocalParameter(Parameter::SPC_COLOR_SPECULAR);
-    }
-    
+
     // Resolve computed local shadow colour parameter.
     mPSLocalShadowFactor = psMain->resolveLocalParameter(GCT_FLOAT1, "lShadowFactor");
 
     // Resolve computed local shadow colour parameter.
     mPSSplitPoints = psProgram->resolveParameter(GCT_FLOAT4, "pssm_split_points");
-
-    // Get derived scene colour.
-    mPSDerivedSceneColour = psProgram->resolveParameter(GpuProgramParameters::ACT_DERIVED_SCENE_COLOUR);
     
     ShadowTextureParamsIterator it = mShadowTextureParamsList.begin();
     int lightIndex = 0;
@@ -253,7 +242,7 @@ bool IntegratedPSSM3::resolveParameters(ProgramSet* programSet)
         ++it;
     }
 
-    if (!(mVSInPos.get()) || !(mVSOutPos.get()) || !(mPSDiffuse.get()) || !(mPSSpecualr.get()))
+    if (!(mVSInPos.get()) || !(mVSOutPos.get()))
     {
         OGRE_EXCEPT(Exception::ERR_INTERNAL_ERROR, "Not all parameters could be constructed for the sub-render state.");
     }
@@ -294,7 +283,7 @@ bool IntegratedPSSM3::addFunctionInvocations(ProgramSet* programSet)
         return false;
 
     // Add pixel shader invocations.
-    if (false == addPSInvocation(psProgram, FFP_PS_COLOUR_BEGIN + 2))
+    if (false == addPSInvocation(psProgram, FFP_PS_COLOUR_BEGIN))
         return false;
 
     return true;
@@ -358,25 +347,8 @@ bool IntegratedPSSM3::addPSInvocation(Program* psProgram, const int groupOrder)
         stage.callFunction(SGX_FUNC_COMPUTE_SHADOW_COLOUR3, params);
     }
 
-    // Apply shadow factor on diffuse colour.
-    stage.callFunction(SGX_FUNC_APPLYSHADOWFACTOR_DIFFUSE,
-                       {In(mPSDerivedSceneColour), In(mPSDiffuse), In(mPSLocalShadowFactor), Out(mPSDiffuse)});
-
-    // Apply shadow factor on specular colour.
-    stage.mul(mPSLocalShadowFactor, mPSSpecualr, mPSSpecualr);
-
-    // Assign the local diffuse to output diffuse.
-    stage.assign(mPSDiffuse, mPSOutDiffuse);
-
+    // shadow factor is applied by lighting stages
     return true;
-}
-
-
-
-//-----------------------------------------------------------------------
-const String& IntegratedPSSM3Factory::getType() const
-{
-    return IntegratedPSSM3::Type;
 }
 
 //-----------------------------------------------------------------------
@@ -385,11 +357,7 @@ SubRenderState* IntegratedPSSM3Factory::createInstance(ScriptCompiler* compiler,
 {
     if (prop->name == "integrated_pssm4")
     {       
-        if (prop->values.size() != 4)
-        {
-            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-        }
-        else
+        if (prop->values.size() == 4)
         {
             IntegratedPSSM3::SplitPointList splitPointList; 
 
@@ -402,8 +370,7 @@ SubRenderState* IntegratedPSSM3Factory::createInstance(ScriptCompiler* compiler,
                 
                 if (false == SGScriptTranslator::getReal(*it, &curSplitValue))
                 {
-                    compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-                    break;
+                    return NULL;
                 }
 
                 splitPointList.push_back(curSplitValue);
@@ -416,7 +383,7 @@ SubRenderState* IntegratedPSSM3Factory::createInstance(ScriptCompiler* compiler,
                 SubRenderState* subRenderState = createOrRetrieveInstance(translator);
                 IntegratedPSSM3* pssmSubRenderState = static_cast<IntegratedPSSM3*>(subRenderState);
 
-                pssmSubRenderState->setSplitPoints(splitPointList);
+                pssmSubRenderState->setParameter("split_points", splitPointList);
 
                 return pssmSubRenderState;
             }

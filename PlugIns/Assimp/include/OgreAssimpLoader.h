@@ -102,8 +102,7 @@ private:
     bool _load(const char* name, Assimp::Importer& importer, Mesh* mesh, SkeletonPtr& skeletonPtr,
                const Options& options);
     bool createSubMesh(const String& name, int index, const aiNode* pNode, const aiMesh* mesh,
-                       const aiMaterial* mat, Mesh* mMesh, AxisAlignedBox& mAAB);
-    MaterialPtr createMaterial(const aiMaterial* mat, const Ogre::String &group);
+                       const MaterialPtr& matptr, Mesh* mMesh, AxisAlignedBox& mAAB);
     void grabNodeNamesFromNode(const aiScene* mScene, const aiNode* pNode);
     void grabBoneNamesFromNode(const aiScene* mScene, const aiNode* pNode);
     void computeNodesDerivedTransform(const aiScene* mScene, const aiNode* pNode,
@@ -144,11 +143,11 @@ private:
 class _OgreAssimpExport AssimpPlugin : public Plugin
 {
 public:
-    const String& getName() const;
-    void install();
-    void uninstall();
-    void initialise() {}
-    void shutdown() {}
+    const String& getName() const override;
+    void install() override;
+    void uninstall() override;
+    void initialise() override {}
+    void shutdown() override {}
 };
 /** @} */
 /** @} */

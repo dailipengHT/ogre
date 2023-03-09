@@ -157,7 +157,7 @@ namespace Ogre
         }
 
         VkAttachmentDescription &attachment = attachments[currAttachmIdx];
-        attachment.format = VulkanMappings::get( texture->getFormat() );
+        attachment.format = VulkanMappings::get( texture->getFormat(), texture->isHardwareGammaEnabled() );
         attachment.samples = bResolveTex ? VK_SAMPLE_COUNT_1_BIT : VkSampleCountFlagBits(colour->getFSAA());
         attachment.loadOp = bResolveTex ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_CLEAR;// TODO colour.loadAction );
         attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // TODO colour.storeAction
@@ -459,17 +459,17 @@ namespace Ogre
             getClearColour( clearColour, mColour[idx]->getFormat() );
     }
     //-----------------------------------------------------------------------------------
-    void VulkanRenderPassDescriptor::setClearDepth( Real clearDepth )
+    void VulkanRenderPassDescriptor::setClearDepth( float clearDepth )
     {
         //RenderPassDescriptor::setClearDepth( clearDepth );
         if( mDepth && mSharedFboItor != mRenderSystem->_getFrameBufferDescMap().end() )
         {
             size_t attachmentIdx = mSharedFboItor->second.mNumImageViews - 1u;
             if( !mRenderSystem->isReverseDepthBufferEnabled() )
-                mClearValues[attachmentIdx].depthStencil.depth = static_cast<float>(clearDepth);
+                mClearValues[attachmentIdx].depthStencil.depth = clearDepth;
             else
             {
-                mClearValues[attachmentIdx].depthStencil.depth = static_cast<float>(Real(1.0) - clearDepth);
+                mClearValues[attachmentIdx].depthStencil.depth = 1.0f - clearDepth;
             }
         }
     }

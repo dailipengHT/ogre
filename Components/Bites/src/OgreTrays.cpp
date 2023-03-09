@@ -71,7 +71,7 @@ Ogre::Vector2 Widget::cursorOffset(Ogre::OverlayElement *element, const Ogre::Ve
 
 Ogre::Real Widget::getCaptionWidth(const Ogre::DisplayString &caption, Ogre::TextAreaOverlayElement *area)
 {
-    Ogre::FontPtr font = area->getFont();
+    const Ogre::FontPtr& font = area->getFont();
     font->load(); // ensure glyph info is there
     Ogre::Real lineWidth = 0;
 
@@ -1277,11 +1277,6 @@ void TrayManager::hideCursor()
 
 void TrayManager::refreshCursor()
 {
-#if (OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0) || (OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS)
-    // TODO:
-    // the position should be based on the orientation, for now simply return
-    return;
-#endif
     mCursor->setPosition(mCursorPos.x, mCursorPos.y);
 }
 

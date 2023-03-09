@@ -40,6 +40,37 @@ namespace Ogre {
 GpuProgramParametersSharedPtr SceneManager::ShadowRenderer::msInfiniteExtrusionParams;
 GpuProgramParametersSharedPtr SceneManager::ShadowRenderer::msFiniteExtrusionParams;
 
+typedef std::vector<ShadowCaster*> ShadowCasterList;
+
+/// Inner class to use as callback for shadow caster scene query
+class ShadowCasterSceneQueryListener : public SceneQueryListener
+{
+protected:
+    SceneManager* mSceneMgr;
+    ShadowCasterList* mCasterList;
+    bool mIsLightInFrustum;
+    const PlaneBoundedVolumeList* mLightClipVolumeList;
+    const Camera* mCamera;
+    const Light* mLight;
+    Real mFarDistSquared;
+public:
+    ShadowCasterSceneQueryListener(SceneManager* sm) : mSceneMgr(sm),
+        mCasterList(0), mIsLightInFrustum(false), mLightClipVolumeList(0),
+        mCamera(0), mFarDistSquared(0) {}
+    // Prepare the listener for use with a set of parameters
+    void prepare(bool lightInFrustum, const PlaneBoundedVolumeList* lightClipVolumes, const Light* light,
+                 const Camera* cam, ShadowCasterList* casterList, Real farDistSquared)
+    {
+        mCasterList = casterList;
+        mIsLightInFrustum = lightInFrustum;
+        mLightClipVolumeList = lightClipVolumes;
+        mCamera = cam;
+        mLight = light;
+        mFarDistSquared = farDistSquared;
+    }
+    bool queryResult(MovableObject* object) override;
+};
+
 SceneManager::ShadowRenderer::ShadowRenderer(SceneManager* owner) :
 mSceneManager(owner),
 mShadowTechnique(SHADOWTYPE_NONE),
@@ -73,6 +104,8 @@ mShadowCasterRenderBackFaces(true)
     // set up default shadow camera setup
     mDefaultShadowCameraSetup = DefaultShadowCameraSetup::create();
 
+    mCullCameraSetup = DefaultShadowCameraSetup::create();
+
     // init shadow texture count per type.
     mShadowTextureCountPerType[Light::LT_POINT] = 1;
     mShadowTextureCountPerType[Light::LT_DIRECTIONAL] = 1;
@@ -84,6 +117,25 @@ SceneManager::ShadowRenderer::~ShadowRenderer() {}
 void SceneManager::ShadowRenderer::setShadowColour(const ColourValue& colour)
 {
     mShadowColour = colour;
+}
+
+void SceneManager::ShadowRenderer::updateSplitOptions(RenderQueue* queue)
+{
+    int shadowTechnique = mShadowTechnique;
+    if(!mSceneManager->getCurrentViewport()->getShadowsEnabled())
+        shadowTechnique = SHADOWTYPE_NONE;
+
+    bool notIntegrated = (shadowTechnique & SHADOWDETAILTYPE_INTEGRATED) == 0;
+
+    // Stencil Casters can always be receivers
+    queue->setShadowCastersCannotBeReceivers(!(shadowTechnique & SHADOWDETAILTYPE_STENCIL) &&
+                                             !mShadowTextureSelfShadow);
+
+    // Additive lighting, we need to split everything by illumination stage
+    queue->setSplitPassesByLightingType((shadowTechnique & SHADOWDETAILTYPE_ADDITIVE) && notIntegrated);
+
+    // Tell render queue to split off non-shadowable materials
+    queue->setSplitNoShadowPasses(shadowTechnique && notIntegrated);
 }
 
 void SceneManager::ShadowRenderer::render(RenderQueueGroup* group,
@@ -191,20 +243,10 @@ void SceneManager::ShadowRenderer::renderAdditiveStencilShadowedQueueGroupObject
 
     }// for each priority
 
-    // Iterate again - variable name changed to appease gcc.
     for (const auto& pg : pGroup->getPriorityGroups())
     {
-        RenderPriorityGroup* pPriorityGrp = pg.second;
-
-        // Do unsorted transparents
-        visitor->renderObjects(pPriorityGrp->getTransparentsUnsorted(), om, true, true);
-        // Do transparents (always descending sort)
-        visitor->renderObjects(pPriorityGrp->getTransparents(),
-            QueuedRenderableCollection::OM_SORT_DESCENDING, true, true);
-
-    }// for each priority
-
-
+        visitor->renderTransparents(pg.second, om);
+    }
 }
 //-----------------------------------------------------------------------
 void SceneManager::ShadowRenderer::renderModulativeStencilShadowedQueueGroupObjects(
@@ -261,30 +303,16 @@ void SceneManager::ShadowRenderer::renderModulativeStencilShadowedQueueGroupObje
     // Restore ambient light
     mSceneManager->setAmbientLight(currAmbient);
 
-    // Iterate again - variable name changed to appease gcc.
+    // Do non-shadowable solids
     for (const auto& pg : pGroup->getPriorityGroups())
     {
-        RenderPriorityGroup* pPriorityGrp = pg.second;
+        visitor->renderObjects(pg.second->getSolidsNoShadowReceive(), om, true, true);
+    }
 
-        // Do non-shadowable solids
-        visitor->renderObjects(pPriorityGrp->getSolidsNoShadowReceive(), om, true, true);
-
-    }// for each priority
-
-
-    // Iterate again - variable name changed to appease gcc.
     for (const auto& pg : pGroup->getPriorityGroups())
     {
-        RenderPriorityGroup* pPriorityGrp = pg.second;
-
-        // Do unsorted transparents
-        visitor->renderObjects(pPriorityGrp->getTransparentsUnsorted(), om, true, true);
-        // Do transparents (always descending sort)
-        visitor->renderObjects(pPriorityGrp->getTransparents(),
-            QueuedRenderableCollection::OM_SORT_DESCENDING, true, true);
-
-    }// for each priority
-
+        visitor->renderTransparents(pg.second, om);
+    }
 }
 //-----------------------------------------------------------------------
 void SceneManager::ShadowRenderer::renderTextureShadowCasterQueueGroupObjects(
@@ -457,19 +485,10 @@ void SceneManager::ShadowRenderer::renderModulativeTextureShadowedQueueGroupObje
 
     }
 
-    // Iterate again - variable name changed to appease gcc.
     for (const auto& pg : pGroup->getPriorityGroups())
     {
-        RenderPriorityGroup* pPriorityGrp = pg.second;
-
-        // Do unsorted transparents
-        visitor->renderObjects(pPriorityGrp->getTransparentsUnsorted(), om, true, true);
-        // Do transparents (always descending)
-        visitor->renderObjects(pPriorityGrp->getTransparents(),
-            QueuedRenderableCollection::OM_SORT_DESCENDING, true, true);
-
-    }// for each priority
-
+        visitor->renderTransparents(pg.second, om);
+    }
 }
 //-----------------------------------------------------------------------
 void SceneManager::ShadowRenderer::renderAdditiveTextureShadowedQueueGroupObjects(
@@ -572,19 +591,10 @@ void SceneManager::ShadowRenderer::renderAdditiveTextureShadowedQueueGroupObject
 
     }// for each priority
 
-    // Iterate again - variable name changed to appease gcc.
     for (const auto& pg : pGroup->getPriorityGroups())
     {
-        RenderPriorityGroup* pPriorityGrp = pg.second;
-
-        // Do unsorted transparents
-        visitor->renderObjects(pPriorityGrp->getTransparentsUnsorted(), om, true, true);
-        // Do transparents (always descending sort)
-        visitor->renderObjects(pPriorityGrp->getTransparents(),
-            QueuedRenderableCollection::OM_SORT_DESCENDING, true, true);
-
-    }// for each priority
-
+        visitor->renderTransparents(pg.second, om);
+    }
 }
 //-----------------------------------------------------------------------
 void SceneManager::ShadowRenderer::renderTextureShadowReceiverQueueGroupObjects(
@@ -635,15 +645,10 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
         size_t __i = 0;
 
         // Recreate shadow textures
-        for (ShadowTextureList::iterator i = mShadowTextures.begin();
-            i != mShadowTextures.end(); ++i, ++__i)
+        for (auto& shadowTex : mShadowTextures)
         {
-            const TexturePtr& shadowTex = *i;
-
             // Camera names are local to SM
             String camName = shadowTex->getName() + "Cam";
-            // Material names are global to SM, make specific
-            String matName = shadowTex->getName() + "Mat" + mSceneManager->getName();
 
             RenderTexture *shadowRTT = shadowTex->getBuffer()->getRenderTarget();
 
@@ -655,8 +660,17 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
             // in prepareShadowTextures to coexist with multiple SMs
             Camera* cam = mSceneManager->createCamera(camName);
             cam->setAspectRatio((Real)shadowTex->getWidth() / (Real)shadowTex->getHeight());
-            mSceneManager->getRootSceneNode()->createChildSceneNode()->attachObject(cam);
+            auto camNode = mSceneManager->getRootSceneNode()->createChildSceneNode();
+            camNode->attachObject(cam);
             mShadowTextureCameras.push_back(cam);
+
+            // use separate culling camera, in case a focused shadow setup is used
+            // in which case we want to keep the original light frustum for culling
+            Camera* cullCam = mSceneManager->createCamera(camName+"/Cull");
+            cullCam->setAspectRatio((Real)shadowTex->getWidth() / (Real)shadowTex->getHeight());
+            cam->setCullingFrustum(cullCam);
+            camNode->attachObject(cullCam);
+
 
             // Create a viewport, if not there already
             if (shadowRTT->getNumViewports() == 0)
@@ -671,29 +685,6 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
             // Don't update automatically - we'll do it when required
             shadowRTT->setAutoUpdated(false);
 
-            // Also create corresponding Material used for rendering this shadow
-            MaterialPtr mat = MaterialManager::getSingleton().getByName(matName);
-            if (!mat)
-            {
-                mat = MaterialManager::getSingleton().create(
-                    matName, ResourceGroupManager::INTERNAL_RESOURCE_GROUP_NAME);
-            }
-            Pass* p = mat->getTechnique(0)->getPass(0);
-            if (p->getNumTextureUnitStates() != 1 ||
-                p->getTextureUnitState(0)->_getTexturePtr(0) != shadowTex)
-            {
-                mat->getTechnique(0)->getPass(0)->removeAllTextureUnitStates();
-                // create texture unit referring to render target texture
-                TextureUnitState* texUnit =
-                    p->createTextureUnitState(shadowTex->getName());
-                // set projective based on camera
-                texUnit->setProjectiveTexturing(!p->hasVertexProgram(), cam);
-                // clamp to border colour
-                texUnit->setSampler(mBorderSampler);
-                mat->touch();
-
-            }
-
             // insert dummy camera-light combination
             mShadowCamLightMapping[cam] = 0;
 
@@ -707,8 +698,7 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
                 mNullShadowTexture = ShadowTextureManager::getSingleton().getNullShadowTexture(
                     mShadowTextureConfigList[0].format);
             }
-
-
+            ++__i;
         }
         mShadowTextureConfigDirty = false;
     }
@@ -717,29 +707,14 @@ void SceneManager::ShadowRenderer::ensureShadowTexturesCreated()
 //---------------------------------------------------------------------
 void SceneManager::ShadowRenderer::destroyShadowTextures(void)
 {
-
-    ShadowTextureList::iterator i, iend;
-    iend = mShadowTextures.end();
-    for (i = mShadowTextures.begin(); i != iend; ++i)
-    {
-        TexturePtr &shadowTex = *i;
-
-        // Cleanup material that references this texture
-        String matName = shadowTex->getName() + "Mat" + mSceneManager->getName();
-        MaterialPtr mat = MaterialManager::getSingleton().getByName(matName);
-        if (mat)
-        {
-            // manually clear TUS to ensure texture ref released
-            mat->getTechnique(0)->getPass(0)->removeAllTextureUnitStates();
-            MaterialManager::getSingleton().remove(mat->getHandle());
-        }
-
-    }
-
     for (auto cam : mShadowTextureCameras)
     {
         mSceneManager->getRootSceneNode()->removeAndDestroyChild(cam->getParentSceneNode());
+
         // Always destroy camera since they are local to this SM
+        if(auto cullcam = dynamic_cast<Camera*>(cam->getCullingFrustum()))
+            mSceneManager->destroyCamera(cullcam);
+
         mSceneManager->destroyCamera(cam);
     }
     mShadowTextures.clear();
@@ -796,6 +771,7 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
     ci = mShadowTextureCameras.begin();
     mShadowTextureIndexLightList.clear();
     size_t shadowTextureIndex = 0;
+
     for (i = lightList->begin(), si = mShadowTextures.begin(); i != iend && si != siend; ++i)
     {
         Light* light = *i;
@@ -803,6 +779,8 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
         // skip light if shadows are disabled
         if (!light->getCastShadows())
             continue;
+
+        mDestRenderSystem->_setDepthClamp(light->getType() == Light::LT_DIRECTIONAL);
 
         // texture iteration per light.
         size_t textureCountPerLight = mShadowTextureCountPerType[light->getType()];
@@ -819,9 +797,20 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
             texCam->setLodCamera(cam);
             // set base
             if (light->getType() != Light::LT_POINT)
+            {
+#ifdef OGRE_NODELESS_POSITIONING
                 texCam->getParentSceneNode()->setDirection(light->getDerivedDirection(), Node::TS_WORLD);
+#else
+                texCam->getParentSceneNode()->setOrientation(light->getParentNode()->_getDerivedOrientation());
+#endif
+            }
             if (light->getType() != Light::LT_DIRECTIONAL)
                 texCam->getParentSceneNode()->setPosition(light->getDerivedPosition());
+
+            // also update culling camera
+            auto cullCam = dynamic_cast<Camera*>(texCam->getCullingFrustum());
+            cullCam->_notifyViewport(shadowView);
+            mCullCameraSetup->getShadowCamera(mSceneManager, cam, vp, light, cullCam, j);
 
             // Use the material scheme of the main viewport
             // This is required to pick up the correct shadow_caster_material and similar properties.
@@ -852,6 +841,8 @@ void SceneManager::ShadowRenderer::prepareShadowTextures(Camera* cam, Viewport* 
             ++si; // next shadow texture
             ++ci; // next camera
         }
+
+        mDestRenderSystem->_setDepthClamp(false);
 
         // set the first shadow texture index for this light.
         mShadowTextureIndexLightList.push_back(shadowTextureIndex);
@@ -963,14 +954,8 @@ void SceneManager::ShadowRenderer::renderShadowVolumesToStencil(const Light* lig
         light->_getNearClipVolume(camera);
 
     // Now iterate over the casters and render
-    ShadowCasterList::const_iterator si, siend;
-    siend = casters.end();
-
-
-    // Now iterate over the casters and render
-    for (si = casters.begin(); si != siend; ++si)
+    for (auto *caster : casters)
     {
-        ShadowCaster* caster = *si;
         bool zfailAlgo = camera->isCustomNearClipPlaneEnabled();
         unsigned long flags = 0;
 
@@ -1546,17 +1531,16 @@ SceneManager::ShadowRenderer::getShadowCasterBoundsInfo( const Light* light, siz
 
     // find light
     unsigned int foundCount = 0;
-    ShadowCamLightMapping::const_iterator it;
-    for ( it = mShadowCamLightMapping.begin() ; it != mShadowCamLightMapping.end(); ++it )
+    for (auto& m : mShadowCamLightMapping)
     {
-        if ( it->second == light )
+        if (m.second == light )
         {
             if (foundCount == iteration)
             {
                 // search the camera-aab list for the texture cam
-                auto camIt = mSceneManager->mCamVisibleObjectsMap.find( it->first );
+                auto camIt = mSceneManager->mCamVisibleObjectsMap.find(m.first);
 
-                if ( camIt == mSceneManager->mCamVisibleObjectsMap.end() )
+                if (camIt == mSceneManager->mCamVisibleObjectsMap.end())
                 {
                     return nullBox;
                 }
@@ -1624,12 +1608,11 @@ void SceneManager::ShadowRenderer::setShadowTextureConfig(size_t shadowIndex,
 void SceneManager::ShadowRenderer::setShadowTextureSize(unsigned short size)
 {
     // default all current
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-        i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->width != size || i->height != size)
+        if (i.width != size || i.height != size)
         {
-            i->width = i->height = size;
+            i.width = i.height = size;
             mShadowTextureConfigDirty = true;
         }
     }
@@ -1657,24 +1640,22 @@ void SceneManager::ShadowRenderer::setShadowTextureCount(size_t count)
 //---------------------------------------------------------------------
 void SceneManager::ShadowRenderer::setShadowTexturePixelFormat(PixelFormat fmt)
 {
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-        i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->format != fmt)
+        if (i.format != fmt)
         {
-            i->format = fmt;
+            i.format = fmt;
             mShadowTextureConfigDirty = true;
         }
     }
 }
 void SceneManager::ShadowRenderer::setShadowTextureFSAA(unsigned short fsaa)
 {
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-                i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->fsaa != fsaa)
+        if (i.fsaa != fsaa)
         {
-            i->fsaa = fsaa;
+            i.fsaa = fsaa;
             mShadowTextureConfigDirty = true;
         }
     }
@@ -1684,15 +1665,14 @@ void SceneManager::ShadowRenderer::setShadowTextureSettings(unsigned short size,
     unsigned short count, PixelFormat fmt, unsigned short fsaa, uint16 depthBufferPoolId)
 {
     setShadowTextureCount(count);
-    for (ShadowTextureConfigList::iterator i = mShadowTextureConfigList.begin();
-        i != mShadowTextureConfigList.end(); ++i)
+    for (auto & i : mShadowTextureConfigList)
     {
-        if (i->width != size || i->height != size || i->format != fmt || i->fsaa != fsaa)
+        if (i.width != size || i.height != size || i.format != fmt || i.fsaa != fsaa)
         {
-            i->width = i->height = size;
-            i->format = fmt;
-            i->fsaa = fsaa;
-            i->depthBufferPoolId = depthBufferPoolId;
+            i.width = i.height = size;
+            i.format = fmt;
+            i.fsaa = fsaa;
+            i.depthBufferPoolId = depthBufferPoolId;
             mShadowTextureConfigDirty = true;
         }
     }
@@ -1736,8 +1716,7 @@ void SceneManager::ShadowRenderer::resolveShadowTexture(TextureUnitState* tu, si
 }
 
 //---------------------------------------------------------------------
-bool SceneManager::ShadowRenderer::ShadowCasterSceneQueryListener::queryResult(
-    MovableObject* object)
+bool ShadowCasterSceneQueryListener::queryResult(MovableObject* object)
 {
     if (object->getCastShadows() && object->isVisible() &&
         mSceneMgr->isRenderQueueToBeProcessed(object->getRenderQueueGroup()) &&
@@ -1788,13 +1767,6 @@ bool SceneManager::ShadowRenderer::ShadowCasterSceneQueryListener::queryResult(
 
         }
     }
-    return true;
-}
-//---------------------------------------------------------------------
-bool SceneManager::ShadowRenderer::ShadowCasterSceneQueryListener::queryResult(
-    SceneQuery::WorldFragment* fragment)
-{
-    // don't deal with world geometry
     return true;
 }
 //---------------------------------------------------------------------
@@ -1872,12 +1844,10 @@ SceneManager::ShadowRenderer::findShadowCastersForLight(const Light* light, cons
 void SceneManager::ShadowRenderer::fireShadowTexturesUpdated(size_t numberOfShadowTextures)
 {
     ListenerList listenersCopy = mListeners;
-    ListenerList::iterator i, iend;
 
-    iend = listenersCopy.end();
-    for (i = listenersCopy.begin(); i != iend; ++i)
+    for (auto *l : listenersCopy)
     {
-        (*i)->shadowTexturesUpdated(numberOfShadowTextures);
+        l->shadowTexturesUpdated(numberOfShadowTextures);
     }
 }
 //---------------------------------------------------------------------
@@ -1893,36 +1863,59 @@ void SceneManager::ShadowRenderer::fireShadowTexturesPreCaster(Light* light, Cam
 void SceneManager::ShadowRenderer::fireShadowTexturesPreReceiver(Light* light, Frustum* f)
 {
     ListenerList listenersCopy = mListeners;
-    ListenerList::iterator i, iend;
-
-    iend = listenersCopy.end();
-    for (i = listenersCopy.begin(); i != iend; ++i)
+    for (auto *l : listenersCopy)
     {
-        (*i)->shadowTextureReceiverPreViewProj(light, f);
+        l->shadowTextureReceiverPreViewProj(light, f);
     }
 }
-void SceneManager::ShadowRenderer::sortLightsAffectingFrustum(LightList& lightList)
+
+namespace
+{
+/** Default sorting routine which sorts lights which cast shadows
+to the front of a list, sub-sorting by distance.
+
+Since shadow textures are generated from lights based on the
+frustum rather than individual objects, a shadow and camera-wise sort is
+required to pick the best lights near the start of the list. Up to
+the number of shadow textures will be generated from this.
+*/
+struct lightsForShadowTextureLess
+{
+    bool operator()(const Light* l1, const Light* l2) const
+    {
+        if (l1 == l2)
+            return false;
+
+        // sort shadow casting lights ahead of non-shadow casting
+        if (l1->getCastShadows() != l2->getCastShadows())
+        {
+            return l1->getCastShadows();
+        }
+
+        // otherwise sort by distance (directional lights will have 0 here)
+        return l1->tempSquareDist < l2->tempSquareDist;
+    }
+};
+} // namespace
+
+void SceneManager::ShadowRenderer::sortLightsAffectingFrustum(LightList& lightList) const
 {
     if ((mShadowTechnique & SHADOWDETAILTYPE_TEXTURE) == 0)
         return;
     // Sort the lights if using texture shadows, since the first 'n' will be
     // used to generate shadow textures and we should pick the most appropriate
 
+    ListenerList listenersCopy = mListeners; // copy in case of listeners removing themselves
+
     // Allow a Listener to override light sorting
     // Reverse iterate so last takes precedence
-    bool overridden = false;
-    ListenerList listenersCopy = mListeners;
-    for (ListenerList::reverse_iterator ri = listenersCopy.rbegin();
-        ri != listenersCopy.rend(); ++ri)
+    for (auto ri = listenersCopy.rbegin(); ri != listenersCopy.rend(); ++ri)
     {
-        overridden = (*ri)->sortLightsAffectingFrustum(lightList);
-        if (overridden)
-            break;
+        if((*ri)->sortLightsAffectingFrustum(lightList))
+            return;
     }
-    if (!overridden)
-    {
-        // default sort (stable to preserve directional light ordering
-        std::stable_sort(lightList.begin(), lightList.end(), lightsForShadowTextureLess());
-    }
+
+    // default sort (stable to preserve directional light ordering
+    std::stable_sort(lightList.begin(), lightList.end(), lightsForShadowTextureLess());
 }
 }

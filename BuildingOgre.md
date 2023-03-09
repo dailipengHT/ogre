@@ -44,7 +44,7 @@ For manually building the dependencies, please refer to the list below and get a
 On linux you additionally need the following system headers to build the GL, GL3+, GLES2 & Vulkan RenderSystems:
 * Ubuntu
 
-    sudo apt-get install libgles2-mesa-dev libvulkan-dev glslang-dev
+    sudo apt-get install libgles2-mesa-dev libvulkan-dev glslang-dev libxrandr-dev
 
 * Fedora
 
@@ -90,7 +90,7 @@ contains this file). In the field *Where to build the binaries* enter
 the path to the build directory you created.
 Hit *Configure*. A dialogue will appear asking you to select a generator.
 
-Check the [CMake documentation](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html) for details on which one is appropriate for your platform and compiler.  
+Check the [CMake documentation](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html) for details on which one is appropriate for your platform and compiler.
 @note on OSX, you must to use the Xcode generator to get a proper SampleBrowser .app bundle.
 
 Click *Finish*. CMake will now gather some information about your
@@ -118,7 +118,7 @@ Go to your chosen build directory. CMake has generated a build system for
 you which you will now use to build Ogre. If you are using Visual Studio,
 you should find the file OGRE.sln. Open it and compile the target
 *BUILD_ALL*. Similarly you will find an Xcode project to build Ogre
-on MacOS. 
+on MacOS.
 
 If you rather want to trigger the build form a console, then cd to your build directory and call the appropriate make program as
 
@@ -138,9 +138,8 @@ This will freshly generate the API documentation for Ogre's classes from the hea
 Installing
 ----------
 
-Once the build is complete, you can optionally have the build system
-copy the built libraries and headers to a clean location. We recommend
-you do this step as it will make it easier to use Ogre in your projects.
+Once the build is complete, the libraries and headers must be copied to a clean location.
+This is required if you want to reference %Ogre in your own projects with CMake.
 In Visual Studio, just select and build the target *INSTALL*. When using the command line, type:
 
     cmake --build . --config Release --target install

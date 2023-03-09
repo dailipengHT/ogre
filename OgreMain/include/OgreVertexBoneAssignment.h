@@ -42,18 +42,17 @@ namespace Ogre
     *  @{
     */
     /** Records the assignment of a single vertex to a single bone with the corresponding weight.
-    @remarks
+
         This simple struct simply holds a vertex index, bone index and weight representing the
         assignment of a vertex to a bone for skeletal animation. There may be many of these
         per vertex if blended vertex assignments are allowed.
     */
-    typedef struct VertexBoneAssignment_s
+    struct VertexBoneAssignment
     {
-        unsigned int vertexIndex;
-        unsigned short boneIndex;
-        Real weight;
-
-    } VertexBoneAssignment;
+        uint32 vertexIndex;
+        uint16 boneIndex;
+        float weight;
+    };
 
     /** @} */
     /** @} */

@@ -64,6 +64,11 @@ namespace Ogre {
 
 		bool HasAutoMipMapGenerationEnabled() const { return mAutoMipMapGeneration; }
 
+        void createShaderAccessPoint(uint bindPoint, TextureAccess access = TA_READ_WRITE,
+                                        int mipmapLevel = 0, int textureArrayIndex = 0,
+                                        PixelFormat format = PF_UNKNOWN) override;
+
+        ID3D11UnorderedAccessView* getUavView() const { return mpUnorderedAccessView.Get(); }
 	protected:
 		TextureUsage _getTextureUsage() { return static_cast<TextureUsage>(mUsage); }
 
@@ -75,7 +80,7 @@ namespace Ogre {
 
             if(FAILED(hr) || mDevice.isError())
             {
-                this->freeInternalResources();
+                this->unloadImpl();
 				String errorDescription = mDevice.getErrorDescription(hr);
 				OGRE_EXCEPT_EX(Exception::ERR_RENDERINGAPI_ERROR, hr, "Can't get base texture\nError Description:" + errorDescription, 
                     "D3D11Texture::_queryInterface" );
@@ -123,6 +128,8 @@ namespace Ogre {
         ComPtr<ID3D11Texture1D> mp1DTex;
         ComPtr<ID3D11Texture2D> mp2DTex;
         ComPtr<ID3D11Texture3D> mp3DTex;
+
+        ComPtr<ID3D11UnorderedAccessView> mpUnorderedAccessView;
 
         D3D11_SHADER_RESOURCE_VIEW_DESC mSRVDesc;
         bool mAutoMipMapGeneration;

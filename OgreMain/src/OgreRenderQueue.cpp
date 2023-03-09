@@ -57,12 +57,25 @@ namespace Ogre {
         // trigger the pending pass updates, otherwise we could leak
         Pass::processPendingPassUpdates();
     }
+
+    static bool onTransparentQueue(Technique* pTech)
+    {
+        // Transparent and depth/colour settings mean depth sorting is required?
+        // Note: colour write disabled with depth check/write enabled means
+        //       setup depth buffer for other passes use.
+        if (pTech->isTransparentSortingForced() ||
+            (pTech->isTransparent() &&
+             (!pTech->isDepthWriteEnabled() || !pTech->isDepthCheckEnabled() || pTech->hasColourWriteDisabled())))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     //-----------------------------------------------------------------------
     void RenderQueue::addRenderable(Renderable* pRend, uint8 groupID, ushort priority)
     {
-        // Find group
-        RenderQueueGroup* pGroup = getQueueGroup(groupID);
-
         Technique* pTech;
 
         // tell material it's been used
@@ -94,7 +107,12 @@ namespace Ogre {
             // tell material it's been used (incase changed)
             pTech->getParent()->touch();
         }
-        
+
+        if(groupID == mDefaultQueueGroup && onTransparentQueue(pTech))
+            groupID = RENDER_QUEUE_TRANSPARENTS;
+
+        // Find group
+        RenderQueueGroup* pGroup = getQueueGroup(groupID);
         pGroup->addRenderable(pRend, pTech, priority);
 
     }
@@ -108,10 +126,10 @@ namespace Ogre {
         {
             RenderQueue* queue = p.second->getRenderQueue();
 
-            for (size_t i = 0; i < RENDER_QUEUE_COUNT; ++i)
+            for (auto & g : queue->mGroups)
             {
-                if(queue->mGroups[i])
-                    queue->mGroups[i]->clear(destroyPassMaps);
+                if(g)
+                    g->clear(destroyPassMaps);
             }
         }
 
@@ -173,10 +191,10 @@ namespace Ogre {
     {
         mSplitPassesByLightingType = split;
 
-        for (size_t i = 0; i < RENDER_QUEUE_COUNT; ++i)
+        for (auto & g : mGroups)
         {
-            if(mGroups[i])
-                mGroups[i]->setSplitPassesByLightingType(split);
+            if(g)
+                g->setSplitPassesByLightingType(split);
         }
     }
     //-----------------------------------------------------------------------
@@ -189,10 +207,10 @@ namespace Ogre {
     {
         mSplitNoShadowPasses = split;
 
-        for (size_t i = 0; i < RENDER_QUEUE_COUNT; ++i)
+        for (auto & g : mGroups)
         {
-            if(mGroups[i])
-                mGroups[i]->setSplitNoShadowPasses(split);
+            if(g)
+                g->setSplitNoShadowPasses(split);
         }
     }
     //-----------------------------------------------------------------------
@@ -205,10 +223,10 @@ namespace Ogre {
     {
         mShadowCastersCannotBeReceivers = ind;
 
-        for (size_t i = 0; i < RENDER_QUEUE_COUNT; ++i)
+        for (auto & g : mGroups)
         {
-            if(mGroups[i])
-                mGroups[i]->setShadowCastersCannotBeReceivers(ind);
+            if(g)
+                g->setShadowCastersCannotBeReceivers(ind);
         }
     }
     //-----------------------------------------------------------------------

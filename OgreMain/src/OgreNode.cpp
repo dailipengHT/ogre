@@ -345,7 +345,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::setOrientation( const Quaternion & q )
     {
+#ifndef OGRE_FAST_MATH
         OgreAssertDbg(!q.isNaN(), "Invalid orientation supplied as parameter");
+#endif
         mOrientation = q;
         mOrientation.normalise();
         needUpdate();
@@ -365,7 +367,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::setPosition(const Vector3& pos)
     {
+#ifndef OGRE_FAST_MATH
         assert(!pos.isNaN() && "Invalid vector supplied as parameter");
+#endif
         mPosition = pos;
         needUpdate();
     }
@@ -544,11 +548,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::removeAllChildren(void)
     {
-        ChildNodeMap::iterator i, iend;
-        iend = mChildren.end();
-        for (i = mChildren.begin(); i != iend; ++i)
+        for (auto *c : mChildren)
         {
-            (*i)->setParent(0);
+            c->setParent(0);
         }
         mChildren.clear();
         mChildrenToUpdate.clear();
@@ -556,7 +558,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::setScale(const Vector3& inScale)
     {
+#ifndef OGRE_FAST_MATH
         assert(!inScale.isNaN() && "Invalid vector supplied as parameter");
+#endif
         mScale = inScale;
         needUpdate();
     }
@@ -729,12 +733,10 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void Node::processQueuedUpdates(void)
     {
-        for (QueuedUpdates::iterator i = msQueuedUpdates.begin();
-            i != msQueuedUpdates.end(); ++i)
+        for (auto *n : msQueuedUpdates)
         {
             // Update, and force parent update since chances are we've ended
             // up with some mixed state in there due to re-entrancy
-            Node* n = *i;
             n->mQueuedForUpdate = false;
             n->needUpdate(true);
         }

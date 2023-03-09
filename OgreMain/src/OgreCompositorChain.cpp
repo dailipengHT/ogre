@@ -122,7 +122,7 @@ void CompositorChain::createOriginalScene()
         /// Render everything, including skies
         pass = tp->createPass(CompositionPass::PT_RENDERSCENE);
         pass->setFirstRenderQueue(RENDER_QUEUE_BACKGROUND);
-        pass->setLastRenderQueue(RENDER_QUEUE_SKIES_LATE);
+        pass->setLastRenderQueue(RENDER_QUEUE_TRANSPARENTS);
         scene->load();
     }
     mOriginalScene = OGRE_NEW CompositorInstance(scene->getSupportedTechnique(), this);
@@ -182,11 +182,9 @@ size_t CompositorChain::getNumCompositors()
 //-----------------------------------------------------------------------
 void CompositorChain::removeAllCompositors()
 {
-    Instances::iterator i, iend;
-    iend = mInstances.end();
-    for (i = mInstances.begin(); i != iend; ++i)
+    for (auto *i : mInstances)
     {
-        OGRE_DELETE *i;
+        OGRE_DELETE i;
     }
     mInstances.clear();
     
@@ -435,19 +433,17 @@ void CompositorChain::postViewportUpdate(const RenderTargetViewportEvent& evt)
 void CompositorChain::viewportCameraChanged(Viewport* viewport)
 {
     Camera* camera = viewport->getCamera();
-    size_t count = mInstances.size();
-    for (size_t i = 0; i < count; ++i)
+    for (auto *i : mInstances)
     {
-        mInstances[i]->notifyCameraChanged(camera);
+        i->notifyCameraChanged(camera);
     }
 }
 //-----------------------------------------------------------------------
 void CompositorChain::viewportDimensionsChanged(Viewport* viewport)
 {
-    size_t count = mInstances.size();
-    for (size_t i = 0; i < count; ++i)
+    for (auto *i : mInstances)
     {
-        mInstances[i]->notifyResized();
+        i->notifyResized();
     }
 }
 //-----------------------------------------------------------------------
@@ -459,10 +455,9 @@ void CompositorChain::viewportDestroyed(Viewport* viewport)
 //-----------------------------------------------------------------------
 void CompositorChain::clearCompiledState()
 {
-    for (RenderSystemOperations::iterator i = mRenderSystemOperations.begin();
-        i != mRenderSystemOperations.end(); ++i)
+    for (auto *r : mRenderSystemOperations)
     {
-        OGRE_DELETE *i;
+        OGRE_DELETE r;
     }
     mRenderSystemOperations.clear();
 
@@ -493,13 +488,13 @@ void CompositorChain::_compile()
     /// Set previous CompositorInstance for each compositor in the list
     CompositorInstance *lastComposition = mOriginalScene;
     mOriginalScene->mPreviousInstance = 0;
-    for(Instances::iterator i=mInstances.begin(); i!=mInstances.end(); ++i)
+    for(auto *i : mInstances)
     {
-        if((*i)->getEnabled())
+        if(i->getEnabled())
         {
             compositorsEnabled = true;
-            (*i)->mPreviousInstance = lastComposition;
-            lastComposition = (*i);
+            i->mPreviousInstance = lastComposition;
+            lastComposition = i;
         }
     }
     
@@ -571,7 +566,7 @@ void CompositorChain::_notifyViewport(Viewport* vp)
 }
 //-----------------------------------------------------------------------
 void CompositorChain::RQListener::renderQueueStarted(uint8 id, 
-    const String& invocation, bool& skipThisQueue)
+    const String& cameraName, bool& skipThisQueue)
 {
     // Skip when not matching viewport
     // shadows update is nested within main viewport update
@@ -585,11 +580,6 @@ void CompositorChain::RQListener::renderQueueStarted(uint8 id,
     {
         skipThisQueue = true;
     }
-}
-//-----------------------------------------------------------------------
-void CompositorChain::RQListener::renderQueueEnded(uint8 id, 
-    const String& invocation, bool& repeatThisQueue)
-{
 }
 //-----------------------------------------------------------------------
 void CompositorChain::RQListener::setOperation(CompositorInstance::TargetOperation *op,SceneManager *sm,RenderSystem *rs)
@@ -635,14 +625,14 @@ CompositorInstance* CompositorChain::getPreviousInstance(CompositorInstance* cur
 CompositorInstance* CompositorChain::getNextInstance(CompositorInstance* curr, bool activeOnly)
 {
     bool found = false;
-    for(Instances::iterator i=mInstances.begin(); i!=mInstances.end(); ++i)
+    for(auto *i : mInstances)
     {
         if (found)
         {
-            if ((*i)->getEnabled() || !activeOnly)
-                return *i;
+            if (i->getEnabled() || !activeOnly)
+                return i;
         }
-        else if(*i == curr)
+        else if(i == curr)
         {
             found = true;
         }

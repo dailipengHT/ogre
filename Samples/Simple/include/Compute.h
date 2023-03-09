@@ -24,13 +24,10 @@ class _OgreSampleClassExport Sample_Compute : public SdkSample
 {
     Entity* mOgreEnt;
 
-    TexturePtr mImage;
-    HardwarePixelBufferSharedPtr mPixelBuffer;
-
  public:
     Sample_Compute();
-    void testCapabilities(const RenderSystemCapabilities* caps);
-    void setupContent(void);
+    void testCapabilities(const RenderSystemCapabilities* caps) override;
+    void setupContent(void) override;
 };
 }
 #endif  // end _CompositorDemo_H_

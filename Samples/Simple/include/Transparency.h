@@ -24,7 +24,7 @@ public:
         addScreenshotFrame(25);
     }
 
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
         Real theta = ControllerManager::getSingleton().getElapsedTime();
 
@@ -47,7 +47,7 @@ public:
 
 protected:
 
-    void checkBoxToggled(CheckBox* box)
+    void checkBoxToggled(CheckBox* box) override
     {
         auto& cm = CompositorManager::getSingleton();
         cm.setCompositorEnabled(mViewport, "WBOIT", box->isChecked());
@@ -55,16 +55,14 @@ protected:
         if(box->isChecked())
         {
             mWaterStream->setMaterialName("Examples/WaterStream/OIT");
-            mWaterStream->setRenderQueueGroup(96); // transparents must be separated
         }
         else
         {
             mWaterStream->setMaterialName("Examples/WaterStream");
-            mWaterStream->setRenderQueueGroup(RENDER_QUEUE_MAIN);
         }
     }
 
-    void setupContent()
+    void setupContent() override
     {
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
         // Need RTSS for WBOIT
@@ -95,7 +93,6 @@ protected:
         mFishNode->setScale(2, 2, 2);
 
         mWaterStream->setMaterialName("Examples/WaterStream");
-        mWaterStream->setRenderQueueGroup(RENDER_QUEUE_MAIN);
         if(!mTrayMgr)
             return;
 

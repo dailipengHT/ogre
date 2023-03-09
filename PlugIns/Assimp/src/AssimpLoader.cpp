@@ -60,7 +60,7 @@ struct OgreLogStream : public Assimp::LogStream
     LogMessageLevel _lml;
     OgreLogStream(LogMessageLevel lml) : _lml(lml) {}
 
-    void write(const char* message)
+    void write(const char* message) override
     {
         String msg(message);
         StringUtil::trim(msg);
@@ -74,16 +74,16 @@ struct OgreIOStream : public Assimp::IOStream
 
     OgreIOStream(DataStreamPtr _stream) : stream(_stream) {}
 
-    size_t Read(void* pvBuffer, size_t pSize, size_t pCount)
+    size_t Read(void* pvBuffer, size_t pSize, size_t pCount) override
     {
         size_t bytes = stream->read(pvBuffer, pSize * pCount);
         return bytes / pSize;
     }
-    size_t Tell() const { return stream->tell(); }
-    size_t FileSize() const { return stream->size(); }
+    size_t Tell() const override { return stream->tell(); }
+    size_t FileSize() const override { return stream->size(); }
 
-    size_t Write(const void* pvBuffer, size_t pSize, size_t pCount) { return 0; }
-    aiReturn Seek(size_t pOffset, aiOrigin pOrigin)
+    size_t Write(const void* pvBuffer, size_t pSize, size_t pCount) override { return 0; }
+    aiReturn Seek(size_t pOffset, aiOrigin pOrigin) override
     {
         if (pOrigin != aiOrigin_SET)
             return AI_FAILURE;
@@ -91,7 +91,7 @@ struct OgreIOStream : public Assimp::IOStream
         stream->seek(pOffset);
         return AI_SUCCESS;
     }
-    void Flush() {}
+    void Flush() override {}
 };
 
 struct OgreIOSystem : public Assimp::IOSystem
@@ -102,7 +102,7 @@ struct OgreIOSystem : public Assimp::IOSystem
 
     OgreIOSystem(const DataStreamPtr& _source, const String& group) : source(_source), _group(group) {}
 
-    bool Exists(const char* pFile) const
+    bool Exists(const char* pFile) const override
     {
         String file = StringUtil::normalizeFilePath(pFile, false);
         if (file == source->getName())
@@ -367,6 +367,10 @@ bool AssimpLoader::_load(const char* name, Assimp::Importer& importer, Mesh* mes
         flags |= aiProcess_JoinIdenticalVertices;
 
     flags |= options.postProcessSteps;
+
+    if((flags & (aiProcess_GenSmoothNormals | aiProcess_GenNormals)) != aiProcess_GenNormals)
+        flags &= ~aiProcess_GenNormals; // prefer smooth normals
+
     importer.SetPropertyFloat("PP_GSN_MAX_SMOOTHING_ANGLE", options.maxEdgeAngle);
     const aiScene* scene = importer.ReadFile(name, flags);
 
@@ -408,6 +412,29 @@ bool AssimpLoader::_load(const char* name, Assimp::Importer& importer, Mesh* mes
                 parseAnimation(scene, i, scene->mAnimations[i]);
             }
         }
+    }
+
+    // Create embedded textures
+    for (unsigned int i = 0; i < scene->mNumTextures; ++i)
+    {
+        const aiTexture* tex = scene->mTextures[i];
+        auto texname =
+            StringUtil::format("%s%s.%s", mesh->getName().c_str(), tex->mFilename.C_Str(), tex->achFormatHint);
+        if (TextureManager::getSingleton().resourceExists(texname, mesh->getGroup()))
+            continue;
+
+        Image img;
+        if(tex->mHeight == 0)
+        {
+            auto stream = std::make_shared<MemoryDataStream>(tex->pcData, tex->mWidth, false);
+            img.load(stream, tex->achFormatHint);
+        }
+        else
+        {
+            img.loadDynamicImage((uchar*)tex->pcData, tex->mWidth, tex->mHeight, PF_A8R8G8B8);
+        }
+
+        TextureManager::getSingleton().loadImage(texname, mesh->getGroup(), img);
     }
 
     loadDataFromNode(scene, scene->mRootNode, mesh);
@@ -815,12 +842,12 @@ void AssimpLoader::grabBoneNamesFromNode(const aiScene* mScene, const aiNode* pN
                         aiNode* node = mScene->mRootNode->FindNode(pAIBone->mName.data);
                         while (node)
                         {
-                            if (node->mName.data == pNode->mName.data)
+                            if (node->mName == pNode->mName)
                             {
                                 flagNodeAsNeeded(node->mName.data);
                                 break;
                             }
-                            if (node->mName.data == pNode->mParent->mName.data)
+                            if (node->mName == pNode->mParent->mName)
                             {
                                 flagNodeAsNeeded(node->mName.data);
                                 break;
@@ -849,7 +876,27 @@ void AssimpLoader::grabBoneNamesFromNode(const aiScene* mScene, const aiNode* pN
     }
 }
 
-MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::String &group)
+static bool getTextureName(const aiMaterial* mat, aiTextureType type, const aiScene* scene, const String& meshName,
+                           String& basename)
+{
+    aiString path;
+    String outPath;
+    if (mat->GetTexture(type, 0, &path) == AI_SUCCESS)
+    {
+        const aiTexture* tex = scene->GetEmbeddedTexture(path.C_Str());
+        if(tex)
+        {
+            basename = StringUtil::format("%s%s.%.8s", meshName.c_str(), tex->mFilename.C_Str(), tex->achFormatHint);
+            return true;
+        }
+
+        StringUtil::splitFilename(String(path.data), basename, outPath);
+        return true;
+    }
+    return false;
+}
+
+static MaterialPtr createMaterial(const aiMaterial* mat, const Ogre::String &group, const String& meshName, const aiScene* scene, bool verbose)
 {
     static int dummyMatCount = 0;
 
@@ -861,36 +908,33 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
     aiString szPath;
     if (AI_SUCCESS == aiGetMaterialString(mat, AI_MATKEY_NAME, &szPath))
     {
-        if (!mQuietMode)
+        if (verbose)
         {
             LogManager::getSingleton().logMessage("Using aiGetMaterialString : Name " +
                                                   String(szPath.data));
         }
     }
 
-    MaterialPtr omat;
+    String matName = meshName;
     if(szPath.length)
     {
-        auto status = omatMgr->createOrRetrieve(ReplaceSpaces(szPath.data), group);
-        omat = static_pointer_cast<Material>(status.first);
-
-        if (!status.second)
-            return omat;
-
-        if (!mQuietMode)
-        {
-            LogManager::getSingleton().logMessage("Creating " + String(szPath.data));
-        }
+        matName += String(szPath.data);
+        matName = ReplaceSpaces(matName);
     }
     else
     {
-        if (!mQuietMode)
-        {
-            LogManager::getSingleton().logMessage("Unnamed material encountered...");
-        }
+        matName += StringUtil::format("dummyMat%d", dummyMatCount++);
+    }
 
-        omat = omatMgr->getDefaultMaterial(false)->clone("dummyMat" +
-                                                         StringConverter::toString(dummyMatCount++), group);
+    auto status = omatMgr->createOrRetrieve(matName, group);
+    auto omat = static_pointer_cast<Material>(status.first);
+
+    if (!status.second)
+        return omat;
+
+    if (verbose)
+    {
+        LogManager::getSingleton().logMessage("Creating " + matName);
     }
 
     // ambient
@@ -948,31 +992,25 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
     }
 
     String basename;
-    String outPath;
-    if (mat->GetTexture(type, 0, &path) == AI_SUCCESS)
+    if (getTextureName(mat, type, scene, meshName, basename))
     {
-        if (!mQuietMode)
+        if (verbose)
         {
-            LogManager::getSingleton().logMessage("Found texture " + String(path.data) + " for channel " +
+            LogManager::getSingleton().logMessage("Found texture " + basename + " for channel " +
                                                   StringConverter::toString(uvindex));
         }
-
-        StringUtil::splitFilename(String(path.data), basename, outPath);
         omat->getTechnique(0)->getPass(0)->createTextureUnitState(basename);
-
-        // TODO: save embedded images to file
     }
 
-    if (mat->GetTexture(aiTextureType_EMISSIVE, 0, &path) == AI_SUCCESS)
+    if (getTextureName(mat, aiTextureType_EMISSIVE, scene, meshName, basename))
     {
-        if (!mQuietMode)
+        if (verbose)
         {
-            LogManager::getSingleton().logMessage("Found emissive map: " + String(path.data));
+            LogManager::getSingleton().logMessage("Found emissive map: " + basename);
         }
-
-        StringUtil::splitFilename(String(path.data), basename, outPath);
         auto tus = omat->getTechnique(0)->getPass(0)->createTextureUnitState(basename);
         tus->setColourOperation(LBO_ADD);
+        omat->setSelfIllumination(0, 0, 0); // assimp assumes emissive is modulated, whereas Ogre adds up
     }
 
 #ifdef OGRE_BUILD_COMPONENT_RTSHADERSYSTEM
@@ -981,34 +1019,32 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
     if(!shaderGen)
         return omat;
 
-    if (mat->GetTexture(aiTextureType_NORMALS, 0, &path) == AI_SUCCESS)
+    if (getTextureName(mat, aiTextureType_NORMALS, scene, meshName, basename))
     {
-        if (!mQuietMode)
+        if (verbose)
         {
-            LogManager::getSingleton().logMessage("Found normal map: " + String(path.data));
+            LogManager::getSingleton().logMessage("Found normal map: " + basename);
         }
 
         shaderGen->createShaderBasedTechnique(omat->getTechnique(0), MSN_SHADERGEN);
         auto rs = shaderGen->getRenderState(MSN_SHADERGEN, *omat, 0);
         auto srs = shaderGen->createSubRenderState("NormalMap");
 
-        StringUtil::splitFilename(String(path.data), basename, outPath);
         srs->setParameter("texture", basename);
         rs->addTemplateSubRenderState(srs);
     }
 
-    if (mat->GetTexture(aiTextureType_UNKNOWN, 0, &path) == AI_SUCCESS)
+    if (getTextureName(mat, aiTextureType_UNKNOWN, scene, meshName, basename))
     {
-        if (!mQuietMode)
+        if (verbose)
         {
-            LogManager::getSingleton().logMessage("Found metal roughness map: " + String(path.data));
+            LogManager::getSingleton().logMessage("Found metal roughness map: " + basename);
         }
 
         shaderGen->createShaderBasedTechnique(omat->getTechnique(0), MSN_SHADERGEN);
         auto rs = shaderGen->getRenderState(MSN_SHADERGEN, *omat, 0);
         auto srs = shaderGen->createSubRenderState("CookTorranceLighting");
 
-        StringUtil::splitFilename(String(path.data), basename, outPath);
         srs->setParameter("texture", basename);
         rs->addTemplateSubRenderState(srs);
 
@@ -1022,7 +1058,7 @@ MaterialPtr AssimpLoader::createMaterial(const aiMaterial* mat, const Ogre::Stri
 }
 
 bool AssimpLoader::createSubMesh(const String& name, int index, const aiNode* pNode, const aiMesh* mesh,
-                                 const aiMaterial* mat, Mesh* mMesh, AxisAlignedBox& mAAB)
+                                 const MaterialPtr& matptr, Mesh* mMesh, AxisAlignedBox& mAAB)
 {
     // if animated all submeshes must have bone weights
     if (mBonesByName.size() && !mesh->HasBones())
@@ -1034,8 +1070,6 @@ bool AssimpLoader::createSubMesh(const String& name, int index, const aiNode* pN
         }
         return false;
     }
-
-    MaterialPtr matptr = createMaterial(mat, mMesh->getGroup());
 
     // now begin the object definition
     // We create a submesh per material
@@ -1286,7 +1320,8 @@ void AssimpLoader::loadDataFromNode(const aiScene* mScene, const aiNode* pNode, 
 
             // Create a material instance for the mesh.
             const aiMaterial* pAIMaterial = mScene->mMaterials[pAIMesh->mMaterialIndex];
-            createSubMesh(pNode->mName.data, idx, pNode, pAIMesh, pAIMaterial, mesh, mAAB);
+            MaterialPtr matptr = createMaterial(pAIMaterial, mesh->getGroup(), mesh->getName(), mScene, !mQuietMode);
+            createSubMesh(pNode->mName.data, idx, pNode, pAIMesh, matptr, mesh, mAAB);
         }
 
         // We must indicate the bounding box
@@ -1309,8 +1344,8 @@ struct AssimpCodec : public Codec
 
     AssimpCodec(const String& type) : mType(type) {}
 
-    String magicNumberToFileExt(const char* magicNumberPtr, size_t maxbytes) const { return ""; }
-    String getType() const { return mType; }
+    String magicNumberToFileExt(const char* magicNumberPtr, size_t maxbytes) const override { return ""; }
+    String getType() const override { return mType; }
     void decode(const DataStreamPtr& input, const Any& output) const override
     {
         Mesh* dst = any_cast<Mesh*>(output);

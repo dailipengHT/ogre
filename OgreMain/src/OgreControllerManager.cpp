@@ -55,17 +55,17 @@ namespace Ogre {
         clearControllers();
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createController(
+    ControllerFloat* ControllerManager::createController(
         const ControllerValueRealPtr& src, const ControllerValueRealPtr& dest,
         const ControllerFunctionRealPtr& func)
     {
-        Controller<Real>* c = OGRE_NEW Controller<Real>(src, dest, func);
+        ControllerFloat* c = OGRE_NEW ControllerFloat(src, dest, func);
 
         mControllers.insert(c);
         return c;
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createFrameTimePassthroughController(
+    ControllerFloat* ControllerManager::createFrameTimePassthroughController(
         const ControllerValueRealPtr& dest)
     {
         return createController(getFrameTimeSource(), dest, getPassthroughControllerFunction());
@@ -77,10 +77,9 @@ namespace Ogre {
         unsigned long thisFrameNumber = Root::getSingleton().getNextFrameNumber();
         if (thisFrameNumber != mLastFrameNumber)
         {
-            ControllerList::const_iterator ci;
-            for (ci = mControllers.begin(); ci != mControllers.end(); ++ci)
+            for (auto *ci : mControllers)
             {
-                (*ci)->update();
+                ci->update();
             }
             mLastFrameNumber = thisFrameNumber;
         }
@@ -88,10 +87,9 @@ namespace Ogre {
     //-----------------------------------------------------------------------
     void ControllerManager::clearControllers(void)
     {
-        ControllerList::iterator ci;
-        for (ci = mControllers.begin(); ci != mControllers.end(); ++ci)
+        for (auto *ci : mControllers)
         {
-            OGRE_DELETE *ci;
+            OGRE_DELETE ci;
         }
         mControllers.clear();
     }
@@ -106,15 +104,15 @@ namespace Ogre {
         return mPassthroughFunction;
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createTextureAnimator(TextureUnitState* layer, Real sequenceTime)
+    ControllerFloat* ControllerManager::createTextureAnimator(TextureUnitState* layer, Real sequenceTime)
     {
         return createController(mFrameTimeController, TextureFrameControllerValue::create(layer),
                                 AnimationControllerFunction::create(sequenceTime));
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createTextureUVScroller(TextureUnitState* layer, Real speed)
+    ControllerFloat* ControllerManager::createTextureUVScroller(TextureUnitState* layer, Real speed)
     {
-        Controller<Real>* ret = 0;
+        ControllerFloat* ret = 0;
 
         if (speed != 0)
         {
@@ -127,9 +125,9 @@ namespace Ogre {
         return ret;
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createTextureUScroller(TextureUnitState* layer, Real uSpeed)
+    ControllerFloat* ControllerManager::createTextureUScroller(TextureUnitState* layer, Real uSpeed)
     {
-        Controller<Real>* ret = 0;
+        ControllerFloat* ret = 0;
 
         if (uSpeed != 0)
         {
@@ -141,9 +139,9 @@ namespace Ogre {
         return ret;
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createTextureVScroller(TextureUnitState* layer, Real vSpeed)
+    ControllerFloat* ControllerManager::createTextureVScroller(TextureUnitState* layer, Real vSpeed)
     {
-        Controller<Real>* ret = 0;
+        ControllerFloat* ret = 0;
 
         if (vSpeed != 0)
         {
@@ -156,7 +154,7 @@ namespace Ogre {
         return ret;
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createTextureRotater(TextureUnitState* layer, Real speed)
+    ControllerFloat* ControllerManager::createTextureRotater(TextureUnitState* layer, Real speed)
     {
         // Target value is texture coord rotation
         // Function is simple scale (seconds * speed)
@@ -166,7 +164,7 @@ namespace Ogre {
                                 ScaleControllerFunction::create(-speed, true));
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createTextureWaveTransformer(TextureUnitState* layer,
+    ControllerFloat* ControllerManager::createTextureWaveTransformer(TextureUnitState* layer,
         TextureUnitState::TextureTransformType ttype, WaveformType waveType, Real base, Real frequency, Real phase, Real amplitude)
     {
         ControllerValueRealPtr val;
@@ -199,14 +197,14 @@ namespace Ogre {
                                 WaveformControllerFunction::create(waveType, base, frequency, phase, amplitude, true));
     }
     //-----------------------------------------------------------------------
-    Controller<Real>* ControllerManager::createGpuProgramTimerParam(
+    ControllerFloat* ControllerManager::createGpuProgramTimerParam(
         GpuProgramParametersSharedPtr params, size_t paramIndex, Real timeFactor)
     {
         return createController(mFrameTimeController, FloatGpuParameterControllerValue::create(params, paramIndex),
                                 ScaleControllerFunction::create(timeFactor, true));
     }
     //-----------------------------------------------------------------------
-    void ControllerManager::destroyController(Controller<Real>* controller)
+    void ControllerManager::destroyController(ControllerFloat* controller)
     {
         ControllerList::iterator i = mControllers.find(controller);
         if (i != mControllers.end())

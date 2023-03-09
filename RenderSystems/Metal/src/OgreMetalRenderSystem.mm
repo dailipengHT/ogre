@@ -41,7 +41,6 @@ Copyright (c) 2000-2016 Torus Knot Software Ltd
 #include "OgreMetalHardwareBufferManager.h"
 #include "OgreMetalHardwareBufferCommon.h"
 
-#include "OgreFrustum.h"
 #include "OgreViewport.h"
 
 #include "OgreMetalMappings.h"
@@ -75,18 +74,6 @@ namespace Ogre
 
         // set config options defaults
         initConfigOptions();
-    }
-    void MetalRenderSystem::initConfigOptions()
-    {
-        RenderSystem::initConfigOptions();
-
-        ConfigOption opt;
-        opt.name = "Video Mode";
-        opt.immutable = false;
-        opt.possibleValues.push_back("800 x 600");
-        opt.currentValue = opt.possibleValues[0];
-
-        mOptions[opt.name] = opt;
     }
     //-------------------------------------------------------------------------
     MetalRenderSystem::~MetalRenderSystem()
@@ -181,6 +168,7 @@ namespace Ogre
         // rsc->setCapability(RSC_TEXTURE_SIGNED_INT);
         rsc->setCapability(RSC_VERTEX_PROGRAM);
         rsc->setCapability(RSC_VERTEX_BUFFER_INSTANCE_DATA);
+        rsc->setCapability(RSC_VERTEX_FORMAT_INT_10_10_10_2);
         rsc->setCapability(RSC_MIPMAP_LOD_BIAS);
         rsc->setCapability(RSC_ALPHA_TO_COVERAGE);
         rsc->setMaxPointSize(256);
@@ -314,8 +302,8 @@ namespace Ogre
 
             mInitialized = true;
 
-            mDefaultVP = HighLevelGpuProgramManager::getSingleton().createProgram("MetalDefaultVP", RGN_INTERNAL, "metal", GPT_VERTEX_PROGRAM);
-            mDefaultFP = HighLevelGpuProgramManager::getSingleton().createProgram("MetalDefaultFP", RGN_INTERNAL, "metal", GPT_FRAGMENT_PROGRAM);
+            mDefaultVP = GpuProgramManager::getSingleton().createProgram("MetalDefaultVP", RGN_INTERNAL, "metal", GPT_VERTEX_PROGRAM).get();
+            mDefaultFP = GpuProgramManager::getSingleton().createProgram("MetalDefaultFP", RGN_INTERNAL, "metal", GPT_FRAGMENT_PROGRAM).get();
             mDefaultVP->setSourceFile("DefaultShaders.metal");
             mDefaultVP->setParameter("entry_point", "default_vp");
             mDefaultFP->setSourceFile("DefaultShaders.metal");
@@ -351,8 +339,8 @@ namespace Ogre
             }
         }
 
-        bindGpuProgram(mDefaultVP.get());
-        bindGpuProgram(mDefaultFP.get());
+        bindGpuProgram(mDefaultVP);
+        bindGpuProgram(mDefaultFP);
 
         return mDefaultVP->getDefaultParameters();
     }
@@ -948,35 +936,21 @@ namespace Ogre
                                                       const GpuProgramParametersPtr& params,
                                                       uint16 variabilityMask )
     {
-        //MetalProgram *shader = 0;
+        mActiveParameters[gptype] = params;
+
         switch (gptype)
         {
-        case GPT_VERTEX_PROGRAM:
-            mActiveVertexGpuProgramParameters = params;
-            //shader = mPso->vertexShader;
-            break;
-        case GPT_FRAGMENT_PROGRAM:
-            mActiveFragmentGpuProgramParameters = params;
-            //shader = mPso->pixelShader;
-            break;
         case GPT_GEOMETRY_PROGRAM:
-            mActiveGeometryGpuProgramParameters = params;
             OGRE_EXCEPT( Exception::ERR_NOT_IMPLEMENTED,
                          "Geometry Shaders are not supported in Metal.");
             break;
         case GPT_HULL_PROGRAM:
-            mActiveTessellationHullGpuProgramParameters = params;
             OGRE_EXCEPT( Exception::ERR_NOT_IMPLEMENTED,
                          "Tesselation is different in Metal.");
             break;
         case GPT_DOMAIN_PROGRAM:
-            mActiveTessellationDomainGpuProgramParameters = params;
             OGRE_EXCEPT( Exception::ERR_NOT_IMPLEMENTED,
                          "Tesselation is different in Metal.");
-            break;
-        case GPT_COMPUTE_PROGRAM:
-            mActiveComputeGpuProgramParameters = params;
-            //shader = static_cast<MetalProgram*>( mComputePso->computeShader->_getBindingDelegate() );
             break;
         default:
             break;

@@ -73,7 +73,6 @@ namespace Ogre {
 
         // Init matrices
         mViewMatrix = Affine3::ZERO;
-        mProjMatrixRS = Matrix4::ZERO;
 
         mParentNode = 0;
 
@@ -88,9 +87,9 @@ namespace Ogre {
     Camera::~Camera()
     {
         ListenerList listenersCopy = mListeners;
-        for (ListenerList::iterator i = listenersCopy.begin(); i != listenersCopy.end(); ++i)
+        for (auto & i : listenersCopy)
         {
-            (*i)->cameraDestroyed(this);
+            i->cameraDestroyed(this);
         }
     }
     //-----------------------------------------------------------------------
@@ -487,9 +486,9 @@ namespace Ogre {
 
         //notify prerender scene
         ListenerList listenersCopy = mListeners;
-        for (ListenerList::iterator i = listenersCopy.begin(); i != listenersCopy.end(); ++i)
+        for (auto & i : listenersCopy)
         {
-            (*i)->cameraPreRenderScene(this);
+            i->cameraPreRenderScene(this);
         }
 
         //render scene
@@ -499,9 +498,9 @@ namespace Ogre {
         listenersCopy = mListeners;
 
         //notify postrender scene
-        for (ListenerList::iterator i = listenersCopy.begin(); i != listenersCopy.end(); ++i)
+        for (auto & i : listenersCopy)
         {
-            (*i)->cameraPostRenderScene(this);
+            i->cameraPostRenderScene(this);
         }
         OgreProfileEndGPUEvent(getName());
     }
@@ -692,14 +691,6 @@ namespace Ogre {
     void Camera::getCameraToViewportRay(Real screenX, Real screenY, Ray* outRay) const
     {
         Matrix4 inverseVP = (getProjectionMatrix() * getViewMatrix(true)).inverse();
-
-#if OGRE_NO_VIEWPORT_ORIENTATIONMODE == 0
-        // We need to convert screen point to our oriented viewport (temp solution)
-        Real tX = screenX; Real a = getOrientationMode() * Math::HALF_PI;
-        screenX = Math::Cos(a) * (tX-0.5f) + Math::Sin(a) * (screenY-0.5f) + 0.5f;
-        screenY = Math::Sin(a) * (tX-0.5f) + Math::Cos(a) * (screenY-0.5f) + 0.5f;
-        if ((int)getOrientationMode()&1) screenY = 1.f - screenY;
-#endif
 
         Real nx = (2.0f * screenX) - 1.0f;
         Real ny = 1.0f - (2.0f * screenY);
@@ -1143,10 +1134,10 @@ namespace Ogre {
         {
             Quaternion planeRot = invPlaneRot.Inverse();
             (*intersect3d).clear();
-            for(unsigned int i=0; i<iPnt.size(); i++)
+            for(auto & i : iPnt)
             {
-                Vector3 intersection = planeRot * Vector3(iPnt[i].x, iPnt[i].y, iPnt[i].z);
-                (*intersect3d).push_back(Vector4(intersection.x, intersection.y, intersection.z, iPnt[i].w));
+                Vector3 intersection = planeRot * Vector3(i.x, i.y, i.z);
+                (*intersect3d).push_back(Vector4(intersection.x, intersection.y, intersection.z, i.w));
             }
         }
     }

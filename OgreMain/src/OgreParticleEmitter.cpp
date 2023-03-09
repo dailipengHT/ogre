@@ -318,10 +318,12 @@ namespace Ogre
                 setEnabled(false);
                 return mEmissionRate;
             }
-            // Keep fractions, otherwise a high frame rate will result in zero emissions!
-            mRemainder += mEmissionRate * timeElapsed;
+
             unsigned short intRequest = (unsigned short)mRemainder;
             mRemainder -= intRequest;
+
+            // Keep fractions, otherwise a high frame rate will result in zero emissions!
+            mRemainder += mEmissionRate * timeElapsed;
 
             // Check duration
             if (mDurationMax)
@@ -554,6 +556,7 @@ namespace Ogre
     void ParticleEmitter::setEnabled(bool enabled)
     {
         mEnabled = enabled;
+        mRemainder = 1.0f; // make sure we emit a particle on next update. Turns emission rate to (t0;r] interval
         // Reset duration & repeat
         initDurationRepeat();
     }
@@ -684,31 +687,23 @@ namespace Ogre
     ParticleEmitterFactory::~ParticleEmitterFactory()
     {
         // Destroy all emitters
-        std::vector<ParticleEmitter*>::iterator i;
-        for (i = mEmitters.begin(); i != mEmitters.end(); ++i)
+        for (auto& e : mEmitters)
         {
-            OGRE_DELETE (*i);
+            OGRE_DELETE e;
         }
             
         mEmitters.clear();
-
     }
     //-----------------------------------------------------------------------
     void ParticleEmitterFactory::destroyEmitter(ParticleEmitter* e)        
     {
-        std::vector<ParticleEmitter*>::iterator i;
-        for (i = mEmitters.begin(); i != mEmitters.end(); ++i)
-        {
-            if ((*i) == e)
-            {
-                mEmitters.erase(i);
-                OGRE_DELETE e;
-                break;
-            }
+        auto i = std::find(std::begin(mEmitters), std::end(mEmitters), e);
+        if (i != std::end(mEmitters)) {
+            mEmitters.erase(i);
+            OGRE_DELETE e;
         }
     }
 
     //-----------------------------------------------------------------------
-
 }
 

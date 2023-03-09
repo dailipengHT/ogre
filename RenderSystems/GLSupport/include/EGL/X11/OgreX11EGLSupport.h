@@ -57,8 +57,6 @@ namespace Ogre {
             X11EGLSupport(int profile);
             virtual ~X11EGLSupport();
 
-            String getDisplayName(void);
-
             NativeDisplayType getNativeDisplay(void);
             XVisualInfo *getVisualFromFBConfig(::EGLConfig glConfig);
             Atom mAtomDeleteWindow;
@@ -73,7 +71,7 @@ namespace Ogre {
                     RenderWindow* newWindow(const String& name,
                                         unsigned int width, unsigned int height,
                                         bool fullScreen,
-                                        const NameValuePairList *miscParams = 0);
+                                        const NameValuePairList *miscParams = 0) override;
 
     };
 }

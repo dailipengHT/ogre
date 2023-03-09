@@ -48,16 +48,6 @@ namespace Ogre
     {
     }
     //---------------------------------------------------------------------
-    const AnyNumeric& NumericKeyFrame::getValue(void) const
-    {
-        return mValue;
-    }
-    //---------------------------------------------------------------------
-    void NumericKeyFrame::setValue(const AnyNumeric& val)
-    {
-        mValue = val;
-    }
-    //---------------------------------------------------------------------
     KeyFrame* NumericKeyFrame::_clone(AnimationTrack* newParent) const
     {
         NumericKeyFrame* newKf = OGRE_NEW NumericKeyFrame(newParent, mTime);
@@ -151,11 +141,11 @@ namespace Ogre
     //---------------------------------------------------------------------
     void VertexPoseKeyFrame::updatePoseReference(ushort poseIndex, Real influence)
     {
-        for (PoseRefList::iterator i = mPoseRefs.begin(); i != mPoseRefs.end(); ++i)
+        for (auto & poseRef : mPoseRefs)
         {
-            if (i->poseIndex == poseIndex)
+            if (poseRef.poseIndex == poseIndex)
             {
-                i->influence = influence;
+                poseRef.influence = influence;
                 return;
             }
         }
@@ -211,10 +201,8 @@ namespace Ogre
     {
         // We subtract the matching pose influences in the base keyframe from the
         // influences in this keyframe
-        for (PoseRefList::iterator i = mPoseRefs.begin(); i != mPoseRefs.end(); ++i)
+        for (auto & myPoseRef : mPoseRefs)
         {
-            PoseRef& myPoseRef = *i;
-            
             PoseRefList::const_iterator basePoseIt = base->getPoseReferences().begin();
             Real baseInfluence = 0.0f;
             for (;basePoseIt != base->getPoseReferences().end(); ++basePoseIt)

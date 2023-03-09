@@ -44,7 +44,7 @@ namespace Ogre {
     *  @{
     */
     /** Utility class which defines the sub-parts of an Entity.
-        @remarks
+
             Just as meshes are split into submeshes, an Entity is made up of
             potentially multiple SubMeshes. These are mainly here to provide the
             link between the Material which the SubEntity uses (which may be the
@@ -105,9 +105,9 @@ namespace Ogre {
         /// Blend buffer details for dedicated geometry
         std::unique_ptr<VertexData> mSkelAnimVertexData;
         /// Quick lookup of buffers
-        TempBlendedBufferInfo mTempSkelAnimInfo;
+        Entity::TempBlendedBufferInfo mTempSkelAnimInfo;
         /// Temp buffer details for software Vertex anim geometry
-        TempBlendedBufferInfo mTempVertexAnimInfo;
+        Entity::TempBlendedBufferInfo mTempVertexAnimInfo;
         /// Vertex data details for software Vertex anim of shared geometry
         std::unique_ptr<VertexData> mSoftwareVertexAnimVertexData;
         /// Vertex data details for hardware Vertex anim of shared geometry
@@ -132,7 +132,7 @@ namespace Ogre {
         const String& getMaterialName() const;
 
         /** Sets the name of the Material to be used.
-            @remarks
+
                 By default a SubEntity uses the default Material that the SubMesh
                 uses. This call can alter that so that the Material is different
                 for this instance.
@@ -149,7 +149,7 @@ namespace Ogre {
         bool isVisible(void) const { return mVisible; }
 
         /** Sets the render queue group this SubEntity will be rendered through.
-        @remarks
+
             Render queues are grouped to allow you to more tightly control the ordering
             of rendered objects. If you do not call this method, the SubEntity will use
             either the Entity's queue or it will use the default
@@ -162,7 +162,7 @@ namespace Ogre {
         void setRenderQueueGroup(uint8 queueID);
 
         /** Sets the render queue group and group priority this SubEntity will be rendered through.
-        @remarks
+
             Render queues are grouped to allow you to more tightly control the ordering
             of rendered objects. Within a single render group there another type of grouping
             called priority which allows further control.  If you do not call this method, 
@@ -232,7 +232,7 @@ namespace Ogre {
         bool getCastsShadows(void) const override;
         /** Advanced method to get the temporarily blended vertex information
         for entities which are software skinned. 
-        @remarks
+
             Internal engine will eliminate software animation if possible, this
             information is unreliable unless added request for software animation
             via Entity::addSoftwareAnimationRequest.
@@ -241,7 +241,7 @@ namespace Ogre {
         */
         VertexData* _getSkelAnimVertexData(void);
         /** Advanced method to get the temporarily blended software morph vertex information
-        @remarks
+
             Internal engine will eliminate software animation if possible, this
             information is unreliable unless added request for software animation
             via Entity::addSoftwareAnimationRequest.
@@ -254,14 +254,6 @@ namespace Ogre {
             The positions/normals of the returned vertex data is in object space.
         */
         VertexData* _getHardwareVertexAnimVertexData(void);
-        /** Advanced method to get the temp buffer information for software 
-        skeletal animation.
-        */
-        TempBlendedBufferInfo* _getSkelAnimTempBufferInfo(void);
-        /** Advanced method to get the temp buffer information for software 
-        morph animation.
-        */
-        TempBlendedBufferInfo* _getVertexAnimTempBufferInfo(void);
         /// Retrieve the VertexData which should be used for GPU binding
         VertexData* getVertexDataForBinding(void);
 

@@ -24,7 +24,7 @@ public:
             "cursor and access widgets. Use WASD keys to move.";
     }
 
-    bool frameRenderingQueued(const FrameEvent& evt)
+    bool frameRenderingQueued(const FrameEvent& evt) override
     {
         if (mMoveLights)
         {
@@ -36,7 +36,7 @@ public:
         return SdkSample::frameRenderingQueued(evt);  // don't forget the parent class updates!
     }
 
-    void itemSelected(SelectMenu* menu)
+    void itemSelected(SelectMenu* menu) override
     {
         if (menu == mMeshMenu)
         {
@@ -59,7 +59,7 @@ public:
         }
     }
 
-    void checkBoxToggled(CheckBox* box)
+    void checkBoxToggled(CheckBox* box) override
     {
         if (StringUtil::startsWith(box->getName(), "Light", false))
         {
@@ -77,7 +77,7 @@ public:
 
 protected:
 
-    void setupContent()
+    void setupContent() override
     {
         // Make this viewport work with shader generator scheme.
         mViewport->setMaterialScheme(MSN_SHADERGEN);
@@ -97,33 +97,32 @@ protected:
     {
         StringVector matNames;
 
+
+#ifdef INCLUDE_RTSHADER_SYSTEM
+        matNames.push_back("RTSS/NormalMapping_SinglePass");
+        matNames.push_back("RTSS/OffsetMapping");
+        matNames.push_back("RTSS/NormalMapping_MultiPass");
+#endif
         matNames.push_back("Examples/BumpMapping/MultiLight");
-        matNames.push_back("Examples/BumpMapping/MultiLightSpecular");
         matNames.push_back("Examples/ShowUV");
         matNames.push_back("Examples/ShowNormals");
         matNames.push_back("Examples/ShowTangents");
 
-#ifdef INCLUDE_RTSHADER_SYSTEM
-        matNames.push_back("RTSS/OffsetMapping");
-        matNames.push_back("RTSS/NormalMapping_SinglePass");
-        matNames.push_back("RTSS/NormalMapping_MultiPass");
-#endif
 
     
         mPossibilities["ogrehead.mesh"] = matNames;
         mPossibilities["knot.mesh"] = matNames;
 
         matNames.clear();
-        matNames.push_back("Examples/Athene/NormalMapped");
-        matNames.push_back("Examples/Athene/NormalMappedSpecular");
-        matNames.push_back("Examples/Athene/NormalMappedSpecular");
-        matNames.push_back("Examples/ShowUV");
-        matNames.push_back("Examples/ShowNormals");
-        matNames.push_back("Examples/ShowTangents");
 #ifdef INCLUDE_RTSHADER_SYSTEM
         matNames.push_back("RTSS/Athene/NormalMapping_SinglePass");
         matNames.push_back("RTSS/Athene/NormalMapping_MultiPass");
 #endif
+        matNames.push_back("Examples/Athene/NormalMapped");
+        matNames.push_back("Examples/ShowUV");
+        matNames.push_back("Examples/ShowNormals");
+        matNames.push_back("Examples/ShowTangents");
+
 
         mPossibilities["athene.mesh"] = matNames;
 
@@ -134,13 +133,9 @@ protected:
                 HardwareBuffer::HBU_DYNAMIC_WRITE_ONLY);
 
             // build tangent vectors for our mesh
-            unsigned short src, dest;
-            if (!mesh->suggestTangentVectorBuildParams(VES_TANGENT, src, dest))
-            {
-                mesh->buildTangentVectors(VES_TANGENT, src, dest);
-                // this version cleans mirrored and rotated UVs but requires quality models
-                // mesh->buildTangentVectors(VES_TANGENT, src, dest, true, true);
-            }
+            mesh->buildTangentVectors();
+            // this version cleans mirrored and rotated UVs but requires quality models
+            // mesh->buildTangentVectors(VES_TANGENT, src, dest, true, true);
 
             // create an entity from the mesh and set the first available material
             Entity* ent = mSceneMgr->createEntity(mesh->getName(), mesh->getName());

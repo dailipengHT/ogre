@@ -36,9 +36,10 @@ namespace RTShader
 /*                                                                      */
 /************************************************************************/
 String GBuffer::Type = "GBuffer";
+const String SRS_GBUFFER = "GBuffer";
 
 //-----------------------------------------------------------------------
-const String& GBuffer::getType() const { return Type; }
+const String& GBuffer::getType() const { return SRS_GBUFFER; }
 
 //-----------------------------------------------------------------------
 int GBuffer::getExecutionOrder() const { return FFP_LIGHTING; }
@@ -47,6 +48,33 @@ bool GBuffer::preAddToRenderState(const RenderState* renderState, Pass* srcPass,
 {
     srcPass->getParent()->getParent()->setReceiveShadows(false);
     return true;
+}
+
+static GBuffer::TargetLayout translate(const String& val)
+{
+    if(val == "depth")
+        return GBuffer::TL_DEPTH;
+    if(val == "normal")
+        return GBuffer::TL_NORMAL;
+    if(val == "viewpos")
+        return GBuffer::TL_VIEWPOS;
+    if(val == "normal_viewdepth")
+        return GBuffer::TL_NORMAL_VIEWDEPTH;
+    return GBuffer::TL_DIFFUSE_SPECULAR;
+}
+
+void GBuffer::setParameter(const String& name, const Any& value)
+{
+    if(name == "target_buffers")
+    {
+        auto buffers = any_cast<StringVector>(value);
+        mOutBuffers.clear();
+
+        for(const auto& buf : buffers)
+            mOutBuffers.push_back(translate(buf));
+        return;
+    }
+    SubRenderState::setParameter(name, value);
 }
 
 //-----------------------------------------------------------------------
@@ -105,7 +133,7 @@ void GBuffer::addViewPosInvocations(ProgramSet* programSet, const ParameterPtr& 
     if(depthOnly)
     {
         auto far = psProgram->resolveParameter(GpuProgramParameters::ACT_FAR_CLIP_DISTANCE);
-        fstage.callFunction("FFP_Length", viewPos, Out(out).w());
+        fstage.callBuiltin("length", viewPos, Out(out).w());
         fstage.div(In(out).w(), far, Out(out).w());
         return;
     }
@@ -163,7 +191,7 @@ void GBuffer::addNormalInvocations(ProgramSet* programSet, const ParameterPtr& o
         auto vsOutNormal = vsMain->resolveOutputParameter(Parameter::SPC_NORMAL_VIEW_SPACE);
         auto worldViewITMatrix = vsProgram->resolveParameter(GpuProgramParameters::ACT_NORMAL_MATRIX);
         vstage.callFunction(FFP_FUNC_TRANSFORM, worldViewITMatrix, vsInNormal, vsOutNormal);
-        vstage.callFunction(FFP_FUNC_NORMALIZE, vsOutNormal);
+        vstage.callBuiltin("normalize", vsOutNormal, vsOutNormal);
 
         // pass through
         viewNormal = psMain->resolveInputParameter(vsOutNormal);
@@ -193,20 +221,7 @@ void GBuffer::copyFrom(const SubRenderState& rhs)
 }
 
 //-----------------------------------------------------------------------
-const String& GBufferFactory::getType() const { return GBuffer::Type; }
-
-static GBuffer::TargetLayout translate(const String& val)
-{
-    if(val == "depth")
-        return GBuffer::TL_DEPTH;
-    if(val == "normal")
-        return GBuffer::TL_NORMAL;
-    if(val == "viewpos")
-        return GBuffer::TL_VIEWPOS;
-    if(val == "normal_viewdepth")
-        return GBuffer::TL_NORMAL_VIEWDEPTH;
-    return GBuffer::TL_DIFFUSE_SPECULAR;
-}
+const String& GBufferFactory::getType() const { return SRS_GBUFFER; }
 
 //-----------------------------------------------------------------------
 SubRenderState* GBufferFactory::createInstance(ScriptCompiler* compiler, PropertyAbstractNode* prop, Pass* pass,
@@ -216,39 +231,17 @@ SubRenderState* GBufferFactory::createInstance(ScriptCompiler* compiler, Propert
         return NULL;
 
     auto it = prop->values.begin();
-    String val;
-
-    if(!SGScriptTranslator::getString(*it++, &val))
-    {
-        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-        return NULL;
-    }
-
-    if (val != "gbuffer")
+    if((*it++)->getString() != "gbuffer")
         return NULL;
 
-    GBuffer::TargetBuffers targets;
-
-    if(!SGScriptTranslator::getString(*it++, &val))
-    {
-        compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-        return NULL;
-    }
-    targets.push_back(translate(val));
+    StringVector targets;
+    targets.push_back((*it++)->getString());
 
     if(it != prop->values.end())
-    {
-        if(!SGScriptTranslator::getString(*it++, &val))
-        {
-            compiler->addError(ScriptCompiler::CE_INVALIDPARAMETERS, prop->file, prop->line);
-            return NULL;
-        }
-
-        targets.push_back(translate(val));
-    }
+        targets.push_back((*it++)->getString());
 
     auto ret = static_cast<GBuffer*>(createOrRetrieveInstance(translator));
-    ret->setOutBuffers(targets);
+    ret->setParameter("target_buffers", targets);
     return ret;
 }
 

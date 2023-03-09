@@ -61,9 +61,6 @@ namespace Ogre {
         // immediately test WGL_ARB_pixel_format and FSAA support
         // so we can set configuration options appropriately
         initialiseWGL();
-#if OGRE_NO_QUAD_BUFFER_STEREO == 0
-		mStereoMode = SMT_NONE;
-#endif
     } 
 
     ConfigOptionMap Win32GLSupport::getConfigOptions()
@@ -391,7 +388,7 @@ namespace Ogre {
         return DefWindowProc(hwnd, umsg, wp, lp);
     }
 
-    bool Win32GLSupport::selectPixelFormat(HDC hdc, int colourDepth, int multisample, bool hwGamma)
+    bool Win32GLSupport::selectPixelFormat(HDC hdc, int colourDepth, int multisample, bool hwGamma, bool stereo)
     {
         PIXELFORMATDESCRIPTOR pfd;
         memset(&pfd, 0, sizeof(pfd));
@@ -405,7 +402,7 @@ namespace Ogre {
         pfd.cStencilBits = 8;
 
 #if OGRE_NO_QUAD_BUFFER_STEREO == 0
-		if (SMT_FRAME_SEQUENTIAL == mStereoMode)
+		if (stereo)
 			pfd.dwFlags |= PFD_STEREO;
 #endif
 
@@ -436,7 +433,7 @@ namespace Ogre {
             attribList.push_back(WGL_SAMPLES_ARB); attribList.push_back(multisample);
 			
 #if OGRE_NO_QUAD_BUFFER_STEREO == 0
-			if (SMT_FRAME_SEQUENTIAL == mStereoMode)
+			if (stereo)
 				attribList.push_back(WGL_STEREO_ARB); attribList.push_back(true);
 #endif
 
@@ -482,8 +479,16 @@ namespace Ogre {
             break;
         default:
             profile = WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
-            majorVersion = std::max(glMajorMax, 3);
-            minorVersion = std::max(glMinorMax, 3); // 3.1 would be sufficient per spec, but we need 3.3 anyway..
+            if (glMajorMax > 3)
+            {
+                majorVersion = glMajorMax;
+                minorVersion = glMinorMax;
+            }
+            else
+            {
+                majorVersion = 3;
+                minorVersion = 3; // 3.1 would be sufficient per spec, but we need 3.3 anyway..
+            }
             break;
         }
 
@@ -510,14 +515,6 @@ namespace Ogre {
         }
 
         return glrc;
-    }
-
-    unsigned int Win32GLSupport::getDisplayMonitorCount() const
-    {
-        if (mMonitorInfoList.empty())       
-            EnumDisplayMonitors(NULL, NULL, sCreateMonitorsInfoEnumProc, (LPARAM)&mMonitorInfoList);
-
-        return (unsigned int)mMonitorInfoList.size();
     }
 
     String translateWGLError()

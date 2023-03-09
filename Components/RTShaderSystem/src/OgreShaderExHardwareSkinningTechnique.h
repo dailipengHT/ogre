@@ -31,6 +31,7 @@ THE SOFTWARE.
 
 #ifdef RTSHADER_SYSTEM_BUILD_EXT_SHADERS
 #include "OgreShaderFunctionAtom.h"
+#include "OgreShaderExHardwareSkinning.h"
 
 namespace Ogre {
 namespace RTShader {
@@ -60,10 +61,9 @@ public:
     */
     virtual void copyFrom(const HardwareSkinningTechnique* hardSkin);
 
-    /**
-    @see HardwareSkinning::setHardwareSkinningParam.
-    */
-    void setHardwareSkinningParam(ushort boneCount, ushort weightCount, bool correctAntipodalityHandling = false, bool scalingShearingSupport = false);
+    void setHardwareSkinningParam(ushort boneCount, ushort weightCount, bool correctAntipodalityHandling, bool scalingShearingSupport);
+
+    virtual bool setParameter(const String& name, const String& value);
 
     /**
     Returns the number of bones in the model assigned to the material.
@@ -89,31 +89,23 @@ public:
     */
     bool hasScalingShearingSupport();
 
-    /**
-    */
-    void setDoBoneCalculations(bool doBoneCalculations);
 
+    void setDoBoneCalculations(bool doBoneCalculations);
     void setDoLightCalculations(bool val) { mDoLightCalculations = val; }
 
-    /**
-    @see SubRenderState::resolveParameters.
-    */
-    virtual bool resolveParameters(ProgramSet* programSet) = 0;
+    bool resolveParameters(ProgramSet* programSet);
+    bool resolveDependencies(ProgramSet* programSet);
 
-    /**
-    @see SubRenderState::resolveDependencies.
-    */
-    virtual bool resolveDependencies(ProgramSet* programSet) = 0;
+    bool addFunctionInvocations(ProgramSet* programSet);
 
-    /**
-    @see SubRenderState::addFunctionInvocations.
-    */
-    virtual bool addFunctionInvocations(ProgramSet* programSet) = 0;
+private:
+    /** Adds functions to calculate position data in world, object and projective space */
+    virtual void addPositionCalculations(const FunctionStageRef& stage) = 0;
 
-protected:
-    /** Translates an index number to a mask value */
-    Operand::OpMask indexToMask (int index);
+    /** Adds the calculations for calculating a normal related element */
+    virtual void addNormalRelatedCalculations(const FunctionStageRef& stage) = 0;
 
+    virtual bool resolveParameters(Program* vsProgram) = 0;
 // Attributes.
 protected:
     ushort mBoneCount;
@@ -125,6 +117,8 @@ protected:
     bool mDoBoneCalculations;
     bool mDoLightCalculations;
     
+    bool mObjSpaceBones;
+
     ParameterPtr mParamInPosition;
     ParameterPtr mParamInNormal;
     //ParameterPtr mParamInBiNormal;
@@ -133,17 +127,135 @@ protected:
     ParameterPtr mParamInWeights;
     UniformParameterPtr mParamInWorldMatrices;
     UniformParameterPtr mParamInInvWorldMatrix;
-    UniformParameterPtr mParamInViewProjMatrix;
-    UniformParameterPtr mParamInWorldMatrix;
     UniformParameterPtr mParamInWorldViewProjMatrix;
 
-    ParameterPtr mParamTempFloat4;
-    ParameterPtr mParamTempFloat3;
-    ParameterPtr mParamLocalPositionWorld;
-    ParameterPtr mParamLocalNormalWorld;
-    //ParameterPtr mParamLocalTangentWorld;
-    //ParameterPtr mParamLocalBinormalWorld;
     ParameterPtr mParamOutPositionProj;
+};
+
+class DualQuaternionSkinning;
+class LinearSkinning;
+
+/** Implement a sub render state which performs hardware skinning.
+Meaning, this sub render states adds calculations which multiply
+the points and normals by their assigned bone matricies.
+*/
+class HardwareSkinning : public SubRenderState
+{
+public:
+    struct SkinningData
+    {
+        SkinningData()
+            : isValid(true), maxBoneCount(0), maxWeightCount(0), skinningType(ST_LINEAR),
+              correctAntipodalityHandling(false), scalingShearingSupport(false)
+        {
+        }
+
+        bool isValid;
+        ushort maxBoneCount;
+        ushort maxWeightCount;
+        SkinningType skinningType;
+        bool correctAntipodalityHandling;
+        bool scalingShearingSupport;
+    };
+
+// Interface.
+public:
+    /** Class default constructor */
+    HardwareSkinning();
+
+    /**
+    @see SubRenderState::getType.
+    */
+    const String& getType() const override;
+
+    /**
+    @see SubRenderState::getType.
+    */
+    int getExecutionOrder() const override;
+
+    /**
+    @see SubRenderState::copyFrom.
+    */
+    void copyFrom(const SubRenderState& rhs) override;
+
+    /**
+    Set the hardware skinning parameters.
+    @param boneCount The maximum number of bones in the model this material
+         is assigned to. Note that this parameter can be higher but not
+         lower than the actual number of bones.
+    @param weightCount The maximum number of weights/bones affecting a vertex.
+    @param skinningType The type of skinning desired.
+    @param correctAntipodalityHandling If correct antipodality handling should be utilized (Only applicable for dual quaternion skinning).
+    @param scalingShearingSupport If scaling and shearing support should be enabled (Only applicable for dual quaternion skinning).
+    */
+    bool setParameter(const String& name, const String& value) override;
+
+    /**
+    Returns the number of bones in the model assigned to the material.
+    @see setHardwareSkinningParam()
+    */
+    ushort getBoneCount();
+
+    /**
+    Returns the number of weights/bones affecting a vertex.
+    @see setHardwareSkinningParam()
+    */
+    ushort getWeightCount();
+
+    /**
+    Returns the current skinning type in use.
+    @see setHardwareSkinningParam()
+     */
+    SkinningType getSkinningType();
+
+    /**
+    Only applicable for dual quaternion skinning.
+    @see setHardwareSkinningParam()
+    */
+    bool hasCorrectAntipodalityHandling();
+
+    /**
+    Only applicable for dual quaternion skinning.
+    @see setHardwareSkinningParam()
+    */
+    bool hasScalingShearingSupport();
+
+    /**
+    @see SubRenderState::preAddToRenderState.
+    */
+    bool preAddToRenderState(const RenderState* renderState, Pass* srcPass, Pass* dstPass) override;
+
+    /**
+    Set the factory which created this sub render state
+    */
+    void _setCreator(const HardwareSkinningFactory* pCreator) { mCreator = pCreator; }
+
+    static String Type;
+
+// Protected methods
+protected:
+    /**
+    @see SubRenderState::resolveParameters.
+    */
+    bool resolveParameters(ProgramSet* programSet) override;
+
+    /**
+    @see SubRenderState::resolveDependencies.
+    */
+    bool resolveDependencies(ProgramSet* programSet) override;
+
+    /**
+    @see SubRenderState::addFunctionInvocations.
+    */
+    bool addFunctionInvocations(ProgramSet* programSet) override;
+
+    SharedPtr<LinearSkinning> mLinear;
+    SharedPtr<DualQuaternionSkinning> mDualQuat;
+    SharedPtr<HardwareSkinningTechnique> mActiveTechnique;
+
+    ///The factory which created this sub render state
+    const HardwareSkinningFactory* mCreator;
+    SkinningType mSkinningType;
 };
 
 }

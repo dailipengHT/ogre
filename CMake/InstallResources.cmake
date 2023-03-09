@@ -23,7 +23,7 @@ if (NOT OGRE_MEDIA_PATH)
       set(OGRE_MEDIA_DIR_REL "../${OGRE_MEDIA_PATH}")
     endif()
   elseif (UNIX)
-    set(OGRE_MEDIA_PATH "share/OGRE/Media")
+    set(OGRE_MEDIA_PATH "share/OGRE-${OGRE_SOVERSION}/Media")
     set(OGRE_MEDIA_DIR_REL "./Media")
   endif()
 else ()
@@ -46,7 +46,7 @@ if (NOT OGRE_CFG_INSTALL_PATH)
   if (WIN32 OR APPLE)
     set(OGRE_CFG_INSTALL_PATH "${OGRE_BIN_DIRECTORY}")
   elseif (UNIX)
-    set(OGRE_CFG_INSTALL_PATH "share/OGRE")
+    set(OGRE_CFG_INSTALL_PATH "share/OGRE-${OGRE_SOVERSION}")
   endif()
 endif()
 
@@ -131,39 +131,40 @@ endif ()
 if (NOT OGRE_BUILD_PLUGIN_STBI)
   set(OGRE_COMMENT_PLUGIN_STBI "#")
 endif ()
+if (NOT OGRE_BUILD_PLUGIN_RSIMAGE OR OGRE_BUILD_PLUGIN_STBI)
+  # has to be explicitely requested by disabeling STBI
+  set(OGRE_COMMENT_PLUGIN_RSIMAGE "#")
+endif ()
 if (NOT OGRE_BUILD_PLUGIN_DOT_SCENE)
   set(OGRE_COMMENT_PLUGIN_DOT_SCENE "#")
 endif ()
 if (NOT OGRE_BUILD_PLUGIN_ASSIMP)
   set(OGRE_COMMENT_PLUGIN_ASSIMP "#")
 endif ()
-if (NOT OGRE_BUILD_PLUGIN_FREEIMAGE OR OGRE_BUILD_PLUGIN_STBI)
+if (NOT OGRE_BUILD_PLUGIN_FREEIMAGE OR OGRE_BUILD_PLUGIN_STBI OR OGRE_BUILD_PLUGIN_RSIMAGE)
   # has to be explicitely requested by disabeling STBI
   set(OGRE_COMMENT_PLUGIN_FREEIMAGE "#")
 endif ()
-if (NOT OGRE_BUILD_PLUGIN_EXRCODEC OR NOT OGRE_COMMENT_PLUGIN_FREEIMAGE)
+if (NOT OGRE_BUILD_PLUGIN_EXRCODEC OR OGRE_COMMENT_PLUGIN_FREEIMAGE OR OGRE_BUILD_PLUGIN_RSIMAGE)
   # overlaps with freeimage
   set(OGRE_COMMENT_PLUGIN_EXRCODEC "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_TERRAIN)
-  set(OGRE_COMMENT_COMPONENT_TERRAIN "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_RTSHADERSYSTEM)
-  set(OGRE_COMMENT_COMPONENT_RTSHADERSYSTEM "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_VOLUME)
-  set(OGRE_COMMENT_COMPONENT_VOLUME "#")
-endif ()
-if (NOT OGRE_BUILD_COMPONENT_TERRAIN OR NOT OGRE_BUILD_COMPONENT_PAGING)
-  set(OGRE_COMMENT_SAMPLE_ENDLESSWORLD "#")
 endif ()
 if(NOT OGRE_BUILD_TESTS)
   set(OGRE_COMMENT_PLAYPENTESTS "#")
 endif()
 
+set(OGRE_SAMPLE_RESOURCES "")
 
 set(OGRE_CORE_MEDIA_DIR "${OGRE_MEDIA_DIR_REL}")
+
 # CREATE CONFIG FILES - INSTALL VERSIONS
+
+if(OGRE_INSTALL_SAMPLES)
+  # deal with sample resources
+  configure_file(${OGRE_TEMPLATES_DIR}/sample_resources.cfg.in ${PROJECT_BINARY_DIR}/sample_resources.cfg)
+  file(READ ${PROJECT_BINARY_DIR}/sample_resources.cfg OGRE_SAMPLE_RESOURCES)
+endif()
+
 configure_file(${OGRE_TEMPLATES_DIR}/resources.cfg.in ${PROJECT_BINARY_DIR}/inst/bin/resources.cfg)
 configure_file(${OGRE_TEMPLATES_DIR}/plugins.cfg.in ${PROJECT_BINARY_DIR}/inst/bin/plugins.cfg)
 configure_file(${OGRE_TEMPLATES_DIR}/samples.cfg.in ${PROJECT_BINARY_DIR}/inst/bin/samples.cfg)
@@ -172,7 +173,6 @@ configure_file(${OGRE_TEMPLATES_DIR}/samples.cfg.in ${PROJECT_BINARY_DIR}/inst/b
 install(FILES 
   ${PROJECT_BINARY_DIR}/inst/bin/resources.cfg
   ${PROJECT_BINARY_DIR}/inst/bin/plugins.cfg
-  ${PROJECT_BINARY_DIR}/inst/bin/samples.cfg
   DESTINATION "${OGRE_CFG_INSTALL_PATH}"
 )
 
@@ -198,6 +198,12 @@ elseif (UNIX)
   set(OGRE_PLUGIN_DIR_REL "${PROJECT_BINARY_DIR}/lib")
   set(OGRE_SAMPLES_DIR_REL "${PROJECT_BINARY_DIR}/lib")
 endif ()
+
+if(OGRE_BUILD_SAMPLES)
+  # deal with sample resources
+  configure_file(${OGRE_TEMPLATES_DIR}/sample_resources.cfg.in ${PROJECT_BINARY_DIR}/sample_resources.cfg)
+  file(READ ${PROJECT_BINARY_DIR}/sample_resources.cfg OGRE_SAMPLE_RESOURCES)
+endif()
 
 if (WINDOWS_STORE OR WINDOWS_PHONE OR EMSCRIPTEN)
   # These platfroms requires all resources to be packaged inside the application bundle,

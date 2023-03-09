@@ -342,16 +342,6 @@ namespace Ogre
     {
         RenderSystem::initConfigOptions();
 
-        // Video mode possibilities
-        ConfigOption optVideoMode;
-        optVideoMode.name = "Video Mode";
-        optVideoMode.immutable = false;
-
-        optVideoMode.possibleValues.push_back("1920 x 1080");
-        optVideoMode.possibleValues.push_back("1280 x 720");
-        optVideoMode.possibleValues.push_back("800 x 600");
-        optVideoMode.currentValue = optVideoMode.possibleValues.front();
-
         ConfigOption optFSAA;
         optFSAA.name = "FSAA";
         optFSAA.immutable = false;
@@ -373,7 +363,6 @@ namespace Ogre
 
         mOptions[optDevices.name] = optDevices;
         mOptions[optFSAA.name] = optFSAA;
-        mOptions[optVideoMode.name] = optVideoMode;
 
         ConfigOption opt;
         opt.name = "Reversed Z-Buffer";
@@ -583,7 +572,8 @@ namespace Ogre
         rsc->setCapability( RSC_32BIT_INDEX );
         rsc->setCapability( RSC_TWO_SIDED_STENCIL );
         rsc->setCapability( RSC_STENCIL_WRAP );
-        rsc->setCapability( RSC_USER_CLIP_PLANES );
+        if( mActiveDevice->mDeviceFeatures.shaderClipDistance )
+            rsc->setCapability( RSC_USER_CLIP_PLANES );
         rsc->setCapability( RSC_TEXTURE_3D );
         rsc->setCapability( RSC_NON_POWER_OF_2_TEXTURES );
         rsc->setCapability(RSC_VERTEX_TEXTURE_FETCH);
@@ -596,6 +586,7 @@ namespace Ogre
         rsc->setCapability( RSC_ALPHA_TO_COVERAGE );
         rsc->setCapability( RSC_HW_GAMMA );
         rsc->setCapability( RSC_VERTEX_BUFFER_INSTANCE_DATA );
+        rsc->setCapability(RSC_VERTEX_FORMAT_INT_10_10_10_2);
         rsc->setMaxPointSize( 256 );
 
         //rsc->setMaximumResolutions( 16384, 4096, 16384 );
@@ -788,7 +779,6 @@ namespace Ogre
                 deviceExtensions.push_back( VK_EXT_DEBUG_MARKER_EXTENSION_NAME );
 
             mDevice->createDevice( deviceExtensions, 0u, 0u );
-            volkLoadDevice(mDevice->mDevice);
 
             mHardwareBufferManager = OGRE_NEW VulkanHardwareBufferManager( mDevice );
 
@@ -1009,7 +999,7 @@ namespace Ogre
 
         std::vector<VkBuffer> vertexBuffers;
         std::vector<VkVertexInputBindingDescription> bufferBindings;
-        for(auto it : op.vertexData->vertexBufferBinding->getBindings())
+        for(const auto& it : op.vertexData->vertexBufferBinding->getBindings())
         {
             auto inputRate = it.second->isInstanceData() ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
             bufferBindings.push_back({it.first, uint32(it.second->getVertexSize()), inputRate});
@@ -1094,27 +1084,7 @@ namespace Ogre
                                                        const GpuProgramParametersPtr& params,
                                                        uint16 variabilityMask )
     {
-        switch( gptype )
-        {
-        case GPT_VERTEX_PROGRAM:
-            mActiveVertexGpuProgramParameters = params;
-            break;
-        case GPT_FRAGMENT_PROGRAM:
-            mActiveFragmentGpuProgramParameters = params;
-            break;
-        case GPT_GEOMETRY_PROGRAM:
-            mActiveGeometryGpuProgramParameters = params;
-            break;
-        case GPT_HULL_PROGRAM:
-            mActiveTessellationHullGpuProgramParameters = params;
-            break;
-        case GPT_DOMAIN_PROGRAM:
-            mActiveTessellationDomainGpuProgramParameters = params;
-            break;
-        case GPT_COMPUTE_PROGRAM:
-            mActiveComputeGpuProgramParameters = params;
-            break;
-        }
+        mActiveParameters[gptype] = params;
 
         auto sizeBytes = params->getConstantList().size();
         if(sizeBytes && gptype <= GPT_FRAGMENT_PROGRAM)
@@ -1270,7 +1240,12 @@ namespace Ogre
         }
     }
 
-    void VulkanRenderSystem::_setCullingMode(CullingMode mode) { rasterState.cullMode = VulkanMappings::get(mode); }
+    void VulkanRenderSystem::_setCullingMode(CullingMode mode)
+    {
+        rasterState.cullMode = VulkanMappings::get(mode);
+        // flipFrontFace result is inverted due to inverted clip space Y
+        rasterState.frontFace = !flipFrontFace() ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    }
 
     void VulkanRenderSystem::_setDepthBias(float constantBias, float slopeScaleBias)
     {
@@ -1283,6 +1258,11 @@ namespace Ogre
             rasterState.depthBiasConstantFactor *= -1;
             rasterState.depthBiasSlopeFactor *= -1;
         }
+    }
+
+    void VulkanRenderSystem::_setDepthClamp(bool enable)
+    {
+        rasterState.depthClampEnable = enable;
     }
 
     void VulkanRenderSystem::_setAlphaRejectSettings(CompareFunction func, unsigned char value, bool alphaToCoverage)
@@ -1395,7 +1375,7 @@ namespace Ogre
             mCurrentRenderPassDescriptor = rtt->getRenderPassDescriptor();
         }
     }
-    void VulkanRenderSystem::clearFrameBuffer(unsigned int buffers, const ColourValue& colour, Real depth,
+    void VulkanRenderSystem::clearFrameBuffer(unsigned int buffers, const ColourValue& colour, float depth,
                                               unsigned short stencil)
     {
         mCurrentRenderPassDescriptor->setClearColour(colour);

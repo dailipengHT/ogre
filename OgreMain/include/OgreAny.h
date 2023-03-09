@@ -169,17 +169,17 @@ namespace Ogre
 
         public: // queries
 
-            virtual const std::type_info & getType() const
+            const std::type_info & getType() const override
             {
                 return typeid(ValueType);
             }
 
-            virtual placeholder * clone() const
+            placeholder * clone() const override
             {
                 return OGRE_NEW_T(holder, MEMCATEGORY_GENERAL)(held);
             }
 
-            virtual void writeToStream(std::ostream& o)
+            void writeToStream(std::ostream& o) override
             {
                 o << "Any::ValueType";
             }
@@ -216,167 +216,6 @@ namespace Ogre
         }
 
     };
-
-
-    /** Specialised Any class which has built in arithmetic operators, but can 
-        hold only types which support operator +,-,* and / .
-    */
-    class AnyNumeric : public Any
-    {
-    public:
-        AnyNumeric()
-        : Any()
-        {
-        }
-
-        template<typename ValueType>
-        AnyNumeric(const ValueType & value)
-            
-        {
-            mContent = OGRE_NEW_T(numholder<ValueType>, MEMCATEGORY_GENERAL)(value);
-        }
-
-        AnyNumeric(const AnyNumeric & other)
-            : Any()
-        {
-            mContent = other.mContent ? other.mContent->clone() : 0; 
-        }
-
-    protected:
-        class numplaceholder : public Any::placeholder
-        {
-        public: // structors
-
-            ~numplaceholder()
-            {
-            }
-            virtual placeholder* add(placeholder* rhs) = 0;
-            virtual placeholder* subtract(placeholder* rhs) = 0;
-            virtual placeholder* multiply(placeholder* rhs) = 0;
-            virtual placeholder* multiply(Real factor) = 0;
-            virtual placeholder* divide(placeholder* rhs) = 0;
-        };
-
-        template<typename ValueType>
-        class numholder : public numplaceholder
-        {
-        public: // structors
-
-            numholder(const ValueType & value)
-                : held(value)
-            {
-            }
-
-        public: // queries
-
-            virtual const std::type_info & getType() const
-            {
-                return typeid(ValueType);
-            }
-
-            virtual placeholder * clone() const
-            {
-                return OGRE_NEW_T(numholder, MEMCATEGORY_GENERAL)(held);
-            }
-
-            virtual placeholder* add(placeholder* rhs)
-            {
-                return OGRE_NEW_T(numholder, MEMCATEGORY_GENERAL)(held + static_cast<numholder*>(rhs)->held);
-            }
-            virtual placeholder* subtract(placeholder* rhs)
-            {
-                return OGRE_NEW_T(numholder, MEMCATEGORY_GENERAL)(held - static_cast<numholder*>(rhs)->held);
-            }
-            virtual placeholder* multiply(placeholder* rhs)
-            {
-                return OGRE_NEW_T(numholder, MEMCATEGORY_GENERAL)(held * static_cast<numholder*>(rhs)->held);
-            }
-            virtual placeholder* multiply(Real factor)
-            {
-                return OGRE_NEW_T(numholder, MEMCATEGORY_GENERAL)(held * factor);
-            }
-            virtual placeholder* divide(placeholder* rhs)
-            {
-                return OGRE_NEW_T(numholder, MEMCATEGORY_GENERAL)(held / static_cast<numholder*>(rhs)->held);
-            }
-            virtual void writeToStream(std::ostream& o)
-            {
-                o << held;
-            }
-
-        public: // representation
-
-            ValueType held;
-
-        };
-
-        /// Construct from holder
-        AnyNumeric(placeholder* pholder)
-        {
-            mContent = pholder;
-        }
-
-    public:
-        AnyNumeric & operator=(const AnyNumeric & rhs)
-        {
-            AnyNumeric(rhs).swap(*this);
-            return *this;
-        }
-        AnyNumeric operator+(const AnyNumeric& rhs) const
-        {
-            return AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->add(rhs.mContent));
-        }
-        AnyNumeric operator-(const AnyNumeric& rhs) const
-        {
-            return AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->subtract(rhs.mContent));
-        }
-        AnyNumeric operator*(const AnyNumeric& rhs) const
-        {
-            return AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->multiply(rhs.mContent));
-        }
-        AnyNumeric operator*(Real factor) const
-        {
-            return AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->multiply(factor));
-        }
-        AnyNumeric operator/(const AnyNumeric& rhs) const
-        {
-            return AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->divide(rhs.mContent));
-        }
-        AnyNumeric& operator+=(const AnyNumeric& rhs)
-        {
-            *this = AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->add(rhs.mContent));
-            return *this;
-        }
-        AnyNumeric& operator-=(const AnyNumeric& rhs)
-        {
-            *this = AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->subtract(rhs.mContent));
-            return *this;
-        }
-        AnyNumeric& operator*=(const AnyNumeric& rhs)
-        {
-            *this = AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->multiply(rhs.mContent));
-            return *this;
-        }
-        AnyNumeric& operator/=(const AnyNumeric& rhs)
-        {
-            *this = AnyNumeric(
-                static_cast<numplaceholder*>(mContent)->divide(rhs.mContent));
-            return *this;
-        }
-
-
-
-
-    };
-
 
     template<typename ValueType>
     ValueType * any_cast(Any * operand)

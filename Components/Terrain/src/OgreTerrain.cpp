@@ -73,9 +73,6 @@ namespace Ogre
     const uint16 Terrain::TERRAINDERIVEDDATA_CHUNK_VERSION = 1;
     // since 129^2 is the greatest power we can address in 16-bit index
     const uint16 Terrain::TERRAIN_MAX_BATCH_SIZE = 129; 
-    const uint16 Terrain::WORKQUEUE_DERIVED_DATA_REQUEST = 1;
-    const uint64 Terrain::TERRAIN_GENERATE_MATERIAL_INTERVAL_MS = 400;
-    const uint16 Terrain::WORKQUEUE_GENERATE_MATERIAL_REQUEST = 2;
     const uint32 Terrain::LOD_MORPH_CUSTOM_PARAM = 1001;
     const uint8 Terrain::DERIVED_DATA_DELTAS = 1;
     const uint8 Terrain::DERIVED_DATA_NORMALS = 2;
@@ -98,7 +95,7 @@ namespace Ogre
     TerrainGlobalOptions::TerrainGlobalOptions()
         : mSkirtSize(30)
         , mLightMapDir(Vector3(1, -1, 0).normalisedCopy())
-        , mCastsShadows(true)
+        , mCastsShadows(false)
         , mMaxPixelError(3.0)
         , mRenderQueueGroup(RENDER_QUEUE_MAIN)
         , mVisibilityFlags(0xFFFFFFFF)
@@ -198,11 +195,6 @@ namespace Ogre
         mRootNode = sm->getRootSceneNode()->createChildSceneNode();
         sm->addListener(this);
 
-        WorkQueue* wq = Root::getSingleton().getWorkQueue();
-        mWorkQueueChannel = wq->getChannel("Ogre/Terrain");
-        wq->addRequestHandler(mWorkQueueChannel, this);
-        wq->addResponseHandler(mWorkQueueChannel, this);
-
         // generate a material name, it's important for the terrain material
         // name to be consistent & unique no matter what generator is being used
         // so use our own pointer as identifier, use FashHash rather than just casting
@@ -217,10 +209,6 @@ namespace Ogre
     {
         mDerivedUpdatePendingMask = 0;
         waitForDerivedProcesses();
-        WorkQueue* wq = Root::getSingleton().getWorkQueue();
-        wq->removeRequestHandler(mWorkQueueChannel, this);
-        wq->removeResponseHandler(mWorkQueueChannel, this); 
-
         removeFromNeighbours();
 
         freeLodData();
@@ -489,12 +477,10 @@ namespace Ogre
         // Layer declaration
         stream.writeChunkBegin(TERRAINLAYERDECLARATION_CHUNK_ID, TERRAINLAYERDECLARATION_CHUNK_VERSION);
         //  samplers
-        uint8 numSamplers = (uint8)decl.samplers.size();
+        uint8 numSamplers = (uint8)decl.size();
         stream.write(&numSamplers);
-        for (TerrainLayerSamplerList::const_iterator i = decl.samplers.begin(); 
-            i != decl.samplers.end(); ++i)
+        for (const auto & sampler : decl)
         {
-            const TerrainLayerSampler& sampler = *i;
             stream.writeChunkBegin(TERRAINLAYERSAMPLER_CHUNK_ID, TERRAINLAYERSAMPLER_CHUNK_VERSION);
             stream.write(&sampler.alias);
             uint8 pixFmt = (uint8)sampler.format;
@@ -502,20 +488,8 @@ namespace Ogre
             stream.writeChunkEnd(TERRAINLAYERSAMPLER_CHUNK_ID);
         }
         //  elements
-        uint8 numElems = (uint8)decl.elements.size();
+        uint8 numElems = 0;
         stream.write(&numElems);
-        for (TerrainLayerSamplerElementList::const_iterator i = decl.elements.begin(); 
-            i != decl.elements.end(); ++i)
-        {
-            const TerrainLayerSamplerElement& elem= *i;
-            stream.writeChunkBegin(TERRAINLAYERSAMPLERELEMENT_CHUNK_ID, TERRAINLAYERSAMPLERELEMENT_CHUNK_VERSION);
-            stream.write(&elem.source);
-            uint8 sem = (uint8)elem.semantic;
-            stream.write(&sem);
-            stream.write(&elem.elementStart);
-            stream.write(&elem.elementCount);
-            stream.writeChunkEnd(TERRAINLAYERSAMPLERELEMENT_CHUNK_ID);
-        }
         stream.writeChunkEnd(TERRAINLAYERDECLARATION_CHUNK_ID);
     }
     //---------------------------------------------------------------------
@@ -526,33 +500,31 @@ namespace Ogre
         //  samplers
         uint8 numSamplers;
         stream.read(&numSamplers);
-        targetdecl.samplers.resize(numSamplers);
+        targetdecl.resize(numSamplers);
         for (uint8 s = 0; s < numSamplers; ++s)
         {
             if (!stream.readChunkBegin(TERRAINLAYERSAMPLER_CHUNK_ID, TERRAINLAYERSAMPLER_CHUNK_VERSION))
                 return false;
 
-            stream.read(&(targetdecl.samplers[s].alias));
+            stream.read(&(targetdecl[s].alias));
             uint8 pixFmt;
             stream.read(&pixFmt);
-            targetdecl.samplers[s].format = (PixelFormat)pixFmt;
+            targetdecl[s].format = (PixelFormat)pixFmt;
             stream.readChunkEnd(TERRAINLAYERSAMPLER_CHUNK_ID);
         }
-        //  elements
+        //  elements are gone, keeping for backward compatibility
         uint8 numElems;
         stream.read(&numElems);
-        targetdecl.elements.resize(numElems);
         for (uint8 e = 0; e < numElems; ++e)
         {
             if (!stream.readChunkBegin(TERRAINLAYERSAMPLERELEMENT_CHUNK_ID, TERRAINLAYERSAMPLERELEMENT_CHUNK_VERSION))
                 return false;
 
-            stream.read(&(targetdecl.elements[e].source));
-            uint8 sem;
-            stream.read(&sem);
-            targetdecl.elements[e].semantic = (TerrainLayerSamplerSemantic)sem;
-            stream.read(&(targetdecl.elements[e].elementStart));
-            stream.read(&(targetdecl.elements[e].elementCount));
+            uint8 unused;
+            stream.read(&unused); // source
+            stream.read(&unused); // semantic
+            stream.read(&unused); // start
+            stream.read(&unused); // count
             stream.readChunkEnd(TERRAINLAYERSAMPLERELEMENT_CHUNK_ID);
         }
         stream.readChunkEnd(TERRAINLAYERDECLARATION_CHUNK_ID);
@@ -564,15 +536,13 @@ namespace Ogre
     {
         uint8 numLayers = (uint8)layers.size();
         stream.write(&numLayers);
-        for (LayerInstanceList::const_iterator i = layers.begin(); i != layers.end(); ++i)
+        for (const auto & inst : layers)
         {
-            const LayerInstance& inst = *i;
             stream.writeChunkBegin(TERRAINLAYERINSTANCE_CHUNK_ID, TERRAINLAYERINSTANCE_CHUNK_VERSION);
             stream.write(&inst.worldSize);
-            for (StringVector::const_iterator t = inst.textureNames.begin(); 
-                t != inst.textureNames.end(); ++t)
+            for (const auto & textureName : inst.textureNames)
             {
-                stream.write(&(*t));
+                stream.write(&textureName);
             }
             stream.writeChunkEnd(TERRAINLAYERINSTANCE_CHUNK_ID);
         }
@@ -690,7 +660,7 @@ namespace Ogre
 
 
         // Layers
-        if (!readLayerInstanceList(stream, mLayerDecl.samplers.size(), mLayers))
+        if (!readLayerInstanceList(stream, mLayerDecl.size(), mLayers))
             return false;
         deriveUVMultipliers();
 
@@ -1122,15 +1092,14 @@ namespace Ogre
         mMaterialGenerator->requestOptions(this);
 
         mGenerateMaterialInProgress = true;
-        GenerateMaterialRequest req;
-        req.terrain = this;
-        req.stage = GEN_MATERIAL;
-        req.startTime = synchronous ? 0 : Root::getSingletonPtr()->getTimer()->getMilliseconds() + TERRAIN_GENERATE_MATERIAL_INTERVAL_MS;
-        req.synchronous = synchronous;
 
-        Root::getSingleton().getWorkQueue()->addRequest(
-            mWorkQueueChannel, WORKQUEUE_GENERATE_MATERIAL_REQUEST, 
-            req, 0, synchronous);
+        if(synchronous)
+        {
+            generateMaterial();
+            return;
+        }
+
+        Root::getSingleton().getWorkQueue()->addMainThreadTask([this]() { generateMaterial(); });
     }
     //---------------------------------------------------------------------
     void Terrain::unload()
@@ -1781,7 +1750,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     const String& Terrain::getLayerTextureName(uint8 layerIndex, uint8 samplerIndex) const
     {
-        if (layerIndex < mLayers.size() && samplerIndex < mLayerDecl.samplers.size())
+        if (layerIndex < mLayers.size() && samplerIndex < mLayerDecl.size())
         {
             return mLayers[layerIndex].textureNames[samplerIndex];
         }
@@ -1794,7 +1763,7 @@ namespace Ogre
     //---------------------------------------------------------------------
     void Terrain::setLayerTextureName(uint8 layerIndex, uint8 samplerIndex, const String& textureName)
     {
-        if (layerIndex < mLayers.size() && samplerIndex < mLayerDecl.samplers.size())
+        if (layerIndex < mLayers.size() && samplerIndex < mLayerDecl.size())
         {
             if (mLayers[layerIndex].textureNames[samplerIndex] != textureName)
             {
@@ -1939,10 +1908,25 @@ namespace Ogre
         if (!mLightMapRequired)
             req.typeMask = req.typeMask & ~DERIVED_DATA_LIGHTMAP;
 
-        Root::getSingleton().getWorkQueue()->addRequest(
-            mWorkQueueChannel, WORKQUEUE_DERIVED_DATA_REQUEST, 
-            req, 0, synchronous);
+        if(synchronous)
+        {
+            auto r = new WorkQueue::Request(0, 0, req, 0, 0);
+            auto res = handleRequest(r, NULL);
+            handleResponse(res, NULL);
+            delete res;
+            return;
+        }
 
+        Root::getSingleton().getWorkQueue()->addTask(
+            [this, req]()
+            {
+                auto r = new WorkQueue::Request(0, 0, req, 0, 0);
+                auto res = handleRequest(r, NULL);
+                Root::getSingleton().getWorkQueue()->addMainThreadTask([this, res](){
+                    handleResponse(res, NULL);
+                    delete res;
+                });
+            });
     }
     //---------------------------------------------------------------------
     void Terrain::waitForDerivedProcesses()
@@ -1951,7 +1935,7 @@ namespace Ogre
         {
             // we need to wait for this to finish
             OGRE_THREAD_SLEEP(50);
-            Root::getSingleton().getWorkQueue()->processResponses();
+            Root::getSingleton().getWorkQueue()->processMainThreadTasks();
         }
 
     }
@@ -1979,9 +1963,9 @@ namespace Ogre
         TextureManager* tmgr = TextureManager::getSingletonPtr();
         if (tmgr)
         {
-            for (TexturePtrList::iterator i = mBlendTextureList.begin(); i != mBlendTextureList.end(); ++i)
+            for (auto & i : mBlendTextureList)
             {   
-                tmgr->remove((*i)->getHandle());
+                tmgr->remove(i->getHandle());
             }
             mBlendTextureList.clear();
 
@@ -2479,15 +2463,7 @@ namespace Ogre
             mMaterialGenerator->getChangeCount() != mMaterialGenerationCount ||
             mMaterialDirty)
         {
-            mMaterial = mMaterialGenerator->generate(this);
-            mMaterial->load();
-            if (mCompositeMapRequired)
-            {
-                mCompositeMapMaterial = mMaterialGenerator->generateForCompositeMap(this);
-                mCompositeMapMaterial->load();
-            }
-            mMaterialGenerationCount = mMaterialGenerator->getChangeCount();
-            mMaterialDirty = false;
+            const_cast<Terrain*>(this)->generateMaterial();
         }
         if (mMaterialParamsDirty)
         {
@@ -2510,20 +2486,10 @@ namespace Ogre
     //---------------------------------------------------------------------
     void Terrain::checkLayers(bool includeGPUResources)
     {
-        for (LayerInstanceList::iterator it = mLayers.begin(); it != mLayers.end(); ++it)
+        for (auto & layer : mLayers)
         {
-            LayerInstance& layer = *it;
-            // If we're missing sampler entries compared to the declaration, initialise them
-            for (size_t i = layer.textureNames.size(); i < mLayerDecl.samplers.size(); ++i)
-            {
-                layer.textureNames.push_back(BLANKSTRING);
-            }
-
-            // if we have too many layers for the declaration, trim them
-            if (layer.textureNames.size() > mLayerDecl.samplers.size())
-            {
-                layer.textureNames.resize(mLayerDecl.samplers.size());
-            }
+            // adjust number of textureNames to number declared samplers
+            layer.textureNames.resize(mLayerDecl.size());
         }
 
         if (includeGPUResources)
@@ -2541,7 +2507,7 @@ namespace Ogre
             mMaterialGenerator = TerrainGlobalOptions::getSingleton().getDefaultMaterialGenerator();
         }
 
-        if (mLayerDecl.elements.empty())
+        if (mLayerDecl.empty())
         {
             // default the declaration
             mLayerDecl = mMaterialGenerator->getLayerDeclaration();
@@ -3030,55 +2996,9 @@ namespace Ogre
             TerrainGlobalOptions::getSingleton().getUseVertexCompressionWhenAvailable();
     }
     //---------------------------------------------------------------------
-    bool Terrain::canHandleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ)
-    {
-        if(req->getType()==WORKQUEUE_DERIVED_DATA_REQUEST)
-        {
-        DerivedDataRequest ddr = any_cast<DerivedDataRequest>(req->getData());
-        // only deal with own requests
-        // we do this because if we delete a terrain we want any pending tasks to be discarded
-        if (ddr.terrain != this)
-            return false;
-        }
-        else if(req->getType()==WORKQUEUE_GENERATE_MATERIAL_REQUEST)
-        {
-            GenerateMaterialRequest gmreq = any_cast<GenerateMaterialRequest>(req->getData());
-            if (gmreq.terrain != this)
-                return false;
-        }
-
-            return RequestHandler::canHandleRequest(req, srcQ);
-
-    }
-    //---------------------------------------------------------------------
-    bool Terrain::canHandleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
-    {
-        const WorkQueue::Request* req = res->getRequest();
-        if(req->getType()==WORKQUEUE_DERIVED_DATA_REQUEST)
-        {
-            DerivedDataRequest ddreq = any_cast<DerivedDataRequest>(req->getData());
-        // only deal with own requests
-        // we do this because if we delete a terrain we want any pending tasks to be discarded
-        if (ddreq.terrain != this)
-            return false;
-        }
-        else if(req->getType()==WORKQUEUE_GENERATE_MATERIAL_REQUEST)
-        {
-            GenerateMaterialRequest gmreq = any_cast<GenerateMaterialRequest>(req->getData());
-            if (gmreq.terrain != this)
-                return false;
-        }
-            return true;
-    }
-    //---------------------------------------------------------------------
     WorkQueue::Response* Terrain::handleRequest(const WorkQueue::Request* req, const WorkQueue* srcQ)
     {
         // Background thread (maybe)
-        if(req->getType()==WORKQUEUE_GENERATE_MATERIAL_REQUEST)
-        {
-            return OGRE_NEW WorkQueue::Response(req, true, Any());
-        }
-
         DerivedDataRequest ddr = any_cast<DerivedDataRequest>(req->getData());
         DerivedDataResponse ddres;
         ddres.remainingTypeMask = ddr.typeMask & DERIVED_DATA_ALL;
@@ -3111,18 +3031,8 @@ namespace Ogre
     void Terrain::handleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
     {
         // Main thread
-        if(res->getRequest()->getType()==WORKQUEUE_GENERATE_MATERIAL_REQUEST)
-        {
-            handleGenerateMaterialResponse(res,srcQ);
-            return;
-        }
-
         DerivedDataResponse ddres = any_cast<DerivedDataResponse>(res->getData());
         DerivedDataRequest ddreq = any_cast<DerivedDataRequest>(res->getRequest()->getData());
-
-        // only deal with own requests
-        if (ddreq.terrain != this)
-            return;
 
         if ((ddreq.typeMask & DERIVED_DATA_DELTAS) && 
             !(ddres.remainingTypeMask & DERIVED_DATA_DELTAS))
@@ -3177,33 +3087,17 @@ namespace Ogre
 
     }
     //---------------------------------------------------------------------
-    void Terrain::handleGenerateMaterialResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
+    void Terrain::generateMaterial()
     {
-        GenerateMaterialRequest gmreq = any_cast<GenerateMaterialRequest>(res->getRequest()->getData());
-        unsigned long currentTime = Root::getSingletonPtr()->getTimer()->getMilliseconds();
+        mMaterial = mMaterialGenerator->generate(this);
+        mMaterial->load();
 
-        // process
-        switch(gmreq.stage)
+        if (mCompositeMapRequired)
         {
-        case GEN_MATERIAL:
-            mMaterial = mMaterialGenerator->generate(this);
-            mMaterial->load();
-            // init next stage
-            if (mCompositeMapRequired)
-            {
-                gmreq.stage = GEN_COMPOSITE_MAP_MATERIAL;
-				gmreq.startTime = currentTime + (gmreq.synchronous ? 0 : TERRAIN_GENERATE_MATERIAL_INTERVAL_MS);
-                Root::getSingleton().getWorkQueue()->addRequest(
-                    mWorkQueueChannel, WORKQUEUE_GENERATE_MATERIAL_REQUEST, 
-                    gmreq, 0, gmreq.synchronous);
-                return;
-            }
-            break;
-        case GEN_COMPOSITE_MAP_MATERIAL:
             mCompositeMapMaterial = mMaterialGenerator->generateForCompositeMap(this);
             mCompositeMapMaterial->load();
-            break;
         }
+
         mMaterialGenerationCount = mMaterialGenerator->getChangeCount();
         mMaterialDirty = false;
 
@@ -3375,9 +3269,9 @@ namespace Ogre
         getPoint(inRect.left, inRect.bottom-1, startHeight, &corners[2]);
         getPoint(inRect.right-1, inRect.bottom-1, startHeight, &corners[3]);
 
-        for (int i = 0; i < 4; ++i)
+        for (auto & corner : corners)
         {
-            Ray ray(corners[i] + mPos, vec);
+            Ray ray(corner + mPos, vec);
             std::pair<bool, Real> rayHit = ray.intersects(p);
             if(rayHit.first)
             {

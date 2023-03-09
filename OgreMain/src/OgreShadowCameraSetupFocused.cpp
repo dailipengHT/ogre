@@ -29,7 +29,6 @@ THE SOFTWARE.
 
 #include "OgreStableHeaders.h"
 #include "OgreShadowCameraSetupFocused.h"
-#include "OgreLight.h"
 
 namespace Ogre
 {
@@ -54,19 +53,6 @@ namespace Ogre
     }
 
     FocusedShadowCameraSetup::~FocusedShadowCameraSetup() {}
-
-    //-----------------------------------------------------------------------
-    void FocusedShadowCameraSetup::calculateShadowMappingMatrix(const SceneManager& sm,
-        const Camera& cam, const Light& light, Affine3 *out_view, Matrix4 *out_proj,
-        Frustum *out_cam) const
-    {
-        OgreAssert(out_cam, "out_cam required");
-        DefaultShadowCameraSetup::getShadowCamera(&sm, &cam, NULL, &light, dynamic_cast<Camera*>(out_cam), 0);
-        if(out_view)
-            *out_view = out_cam->getViewMatrix();
-        if(out_proj)
-            *out_proj = out_cam->getProjectionMatrix();
-    }
     //-----------------------------------------------------------------------
     void FocusedShadowCameraSetup::calculateB(const SceneManager& sm, const Camera& cam, 
         const Light& light, const AxisAlignedBox& sceneBB, const AxisAlignedBox& receiverBB, 
@@ -130,6 +116,12 @@ namespace Ogre
                     (cam.getDerivedDirection() * farDist);
                 Plane p(cam.getDerivedDirection(), pointOnPlane);
                 mBodyB.clip(p);
+            }
+
+            if(Root::getSingleton().getRenderSystem()->getCapabilities()->hasCapability(RSC_DEPTH_CLAMP))
+            {
+                out_bodyB->build(mBodyB);
+                return;
             }
 
             // Extrude the intersection bodyB into the inverted light direction and store 
@@ -374,11 +366,8 @@ namespace Ogre
                 {
                     bool bPresent = false;
 
-                    for(Polygon::VertexList::iterator vit = mBodyPoints.begin();
-                        vit != mBodyPoints.end(); ++vit)
+                    for(auto & v : mBodyPoints)
                     {
-                        const Vector3& v = *vit;
-
                         if (vInsert.positionEquals(v))
                         {
                             bPresent = true;

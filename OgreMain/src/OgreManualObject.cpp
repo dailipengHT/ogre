@@ -53,9 +53,9 @@ ManualObject::ManualObject(const String& name)
     void ManualObject::clear(void)
     {
         resetTempAreas();
-        for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+        for (auto & i : mSectionList)
         {
-            OGRE_DELETE *i;
+            OGRE_DELETE i;
         }
         mSectionList.clear();
         mRadius = 0;
@@ -124,13 +124,13 @@ ManualObject::ManualObject(const String& name)
         mTempIndexSize = newSize;
     }
     //-----------------------------------------------------------------------------
-    void ManualObject::estimateVertexCount(size_t vcount)
+    void ManualObject::estimateVertexCount(uint32 vcount)
     {
         resizeTempVertexBufferIfNeeded(vcount);
         mEstVertexCount = vcount;
     }
     //-----------------------------------------------------------------------------
-    void ManualObject::estimateIndexCount(size_t icount)
+    void ManualObject::estimateIndexCount(uint32 icount)
     {
         resizeTempIndexBufferIfNeeded(icount);
         mEstIndexCount = icount;
@@ -146,12 +146,7 @@ ManualObject::ManualObject(const String& name)
 
         if(!material)
         {
-            LogManager::getSingleton().logError("Can't assign material " + materialName +
-                                                  " to the ManualObject " + mName + " because this "
-                                                  "Material does not exist in group " + groupName +
-                                                  ". Have you forgotten to define it in a "
-                                                  ".material script?");
-
+            logMaterialNotFound(materialName, groupName, "ManualObject", mName);
             material = MaterialManager::getSingleton().getDefaultMaterial();
         }
 
@@ -260,23 +255,21 @@ ManualObject::ManualObject(const String& name)
         char* pBase = mTempVertexBuffer + (mDeclSize * (rop->vertexData->vertexCount-1));
         const VertexDeclaration::VertexElementList& elemList =
             rop->vertexData->vertexDeclaration->getElements();
-        for (VertexDeclaration::VertexElementList::const_iterator i = elemList.begin();
-            i != elemList.end(); ++i)
+        for (const auto & elem : elemList)
         {
             float* pFloat = 0;
             RGBA* pRGBA = 0;
-            const VertexElement& elem = *i;
             switch(elem.getType())
             {
             case VET_FLOAT1:
             case VET_FLOAT2:
             case VET_FLOAT3:
             case VET_FLOAT4:
-                OgreAssert(elem.getSemantic() != VES_DIFFUSE, "must use VET_COLOUR");
+                OgreAssert(elem.getSemantic() != VES_COLOUR, "must use VET_UBYTE4_NORM");
                 elem.baseVertexPointerToElement(pBase, &pFloat);
                 break;
             case VET_UBYTE4_NORM:
-                OgreAssert(elem.getSemantic() == VES_DIFFUSE, "must use VES_DIFFUSE");
+                OgreAssert(elem.getSemantic() == VES_COLOUR, "must use VES_COLOUR");
                 elem.baseVertexPointerToElement(pBase, &pRGBA);
                 break;
             default:
@@ -288,27 +281,20 @@ ManualObject::ManualObject(const String& name)
             switch(elem.getSemantic())
             {
             case VES_POSITION:
-                *pFloat++ = mTempVertex.position.x;
-                *pFloat++ = mTempVertex.position.y;
-                *pFloat++ = mTempVertex.position.z;
+                memcpy(pFloat, mTempVertex.position.ptr(), sizeof(Vector3f));
                 break;
             case VES_NORMAL:
-                *pFloat++ = mTempVertex.normal.x;
-                *pFloat++ = mTempVertex.normal.y;
-                *pFloat++ = mTempVertex.normal.z;
+                memcpy(pFloat, mTempVertex.normal.ptr(), sizeof(Vector3f));
                 break;
             case VES_TANGENT:
-                *pFloat++ = mTempVertex.tangent.x;
-                *pFloat++ = mTempVertex.tangent.y;
-                *pFloat++ = mTempVertex.tangent.z;
+                memcpy(pFloat, mTempVertex.tangent.ptr(), sizeof(Vector3f));
                 break;
             case VES_TEXTURE_COORDINATES:
                 dims = VertexElement::getTypeCount(elem.getType());
-                for (ushort t = 0; t < dims; ++t)
-                    *pFloat++ = mTempVertex.texCoord[elem.getIndex()][t];
+                memcpy(pFloat, mTempVertex.texCoord[elem.getIndex()].ptr(), sizeof(float)*dims);
                 break;
-            case VES_DIFFUSE:
-                *pRGBA++ = mTempVertex.colour.getAsABGR();
+            case VES_COLOUR:
+                *pRGBA = mTempVertex.colour.getAsBYTE();
                 break;
             default:
                 OgreAssert(false, "invalid semantic");
@@ -471,9 +457,9 @@ ManualObject::ManualObject(const String& name)
     void ManualObject::setUseIdentityProjection(bool useIdentityProjection)
     {
         // Set existing
-        for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+        for (auto & i : mSectionList)
         {
-            (*i)->setUseIdentityProjection(useIdentityProjection);
+            i->setUseIdentityProjection(useIdentityProjection);
         }
         
         // Save setting for future sections
@@ -483,9 +469,9 @@ ManualObject::ManualObject(const String& name)
     void ManualObject::setUseIdentityView(bool useIdentityView)
     {
         // Set existing
-        for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+        for (auto & i : mSectionList)
         {
-            (*i)->setUseIdentityView(useIdentityView);
+            i->setUseIdentityView(useIdentityView);
         }
 
         // Save setting for future sections
@@ -502,10 +488,10 @@ ManualObject::ManualObject(const String& name)
         // To be used when order of creation must be kept while rendering
         unsigned short priority = queue->getDefaultRenderablePriority();
 
-        for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+        for (auto & i : mSectionList)
         {
             // Skip empty sections (only happens if non-empty first, then updated)
-            RenderOperation* rop = (*i)->getRenderOperation();
+            RenderOperation* rop = i->getRenderOperation();
             if (rop->vertexData->vertexCount == 0 ||
                 (rop->useIndexes && rop->indexData->indexCount == 0))
                 continue;
@@ -513,21 +499,21 @@ ManualObject::ManualObject(const String& name)
             if (mRenderQueuePrioritySet)
             {
                 assert(mRenderQueueIDSet == true);
-                queue->addRenderable(*i, mRenderQueueID, mRenderQueuePriority);
+                queue->addRenderable(i, mRenderQueueID, mRenderQueuePriority);
             }
             else if (mRenderQueueIDSet)
-                queue->addRenderable(*i, mRenderQueueID, mKeepDeclarationOrder ? priority++ : queue->getDefaultRenderablePriority());
+                queue->addRenderable(i, mRenderQueueID, mKeepDeclarationOrder ? priority++ : queue->getDefaultRenderablePriority());
             else
-                queue->addRenderable(*i, queue->getDefaultQueueGroup(), mKeepDeclarationOrder ? priority++ : queue->getDefaultRenderablePriority());
+                queue->addRenderable(i, queue->getDefaultQueueGroup(), mKeepDeclarationOrder ? priority++ : queue->getDefaultRenderablePriority());
         }
     }
     //-----------------------------------------------------------------------------
     void ManualObject::visitRenderables(Renderable::Visitor* visitor, 
         bool debugRenderables)
     {
-        for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+        for (auto & i : mSectionList)
         {
-            visitor->visit(*i, 0, false);
+            visitor->visit(i, 0, false);
         }
 
     }
@@ -540,9 +526,9 @@ ManualObject::ManualObject(const String& name)
             EdgeListBuilder eb;
             size_t vertexSet = 0;
             bool anyBuilt = false;
-            for (SectionList::iterator i = mSectionList.begin(); i != mSectionList.end(); ++i)
+            for (auto & i : mSectionList)
             {
-                RenderOperation* rop = (*i)->getRenderOperation();
+                RenderOperation* rop = i->getRenderOperation();
                 // Only indexed triangle geometry supported for stencil shadows
                 if (rop->useIndexes && rop->indexData->indexCount != 0 && 
                     (rop->operationType == RenderOperation::OT_TRIANGLE_FAN ||

@@ -103,13 +103,13 @@ namespace Ogre {
         uint8 getLastRenderQueue() const;
 
         /** Set the material scheme used by this pass.
-        @remarks
+
             Only applicable to passes that render the scene.
             @see Technique::setScheme.
         */
         void setMaterialScheme(const String& schemeName);
         /** Get the material scheme used by this pass.
-        @remarks
+
             Only applicable to passes that render the scene.
             @see Technique::setScheme.
         */
@@ -355,7 +355,7 @@ namespace Ogre {
             bool alignCameraToFace;
 
             RenderSceneData()
-                : firstRenderQueue(RENDER_QUEUE_BACKGROUND), lastRenderQueue(RENDER_QUEUE_SKIES_LATE),
+                : firstRenderQueue(RENDER_QUEUE_BACKGROUND), lastRenderQueue(RENDER_QUEUE_TRANSPARENTS),
                   alignCameraToFace(false)
             {
             }
